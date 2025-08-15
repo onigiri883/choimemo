@@ -1,452 +1,301 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ja">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
-  <title>モバイル用メモ（単一HTML）</title>
-  <style>
-    :root{
-      --bg:#0b0c10; /* ダーク背景 */
-      --card:#16181d;
-      --muted:#6b7280;
-      --text:#e5e7eb;
-      --accent:#22c55e; /* 緑系 */
-      --accent-weak:#2dd4bf; /* 補助 */
-      --danger:#ef4444;
-      --shadow:0 8px 24px rgba(0,0,0,.25);
-      --radius:16px;
-    }
-    *{box-sizing:border-box;-webkit-tap-highlight-color: transparent;}
-    html,body{height:100%}
-    body{
-      margin:0; background:var(--bg); color:var(--text);
-      font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
-      line-height:1.5; letter-spacing:.1px;
-    }
-    .app{min-height:100vh; display:flex; flex-direction:column; gap:12px; padding:16px 14px 96px}
-
-    /* ヘッダ（アプリ名＋アクション） */
-    .header{display:flex; align-items:center; justify-content:space-between;}
-    .title{font-weight:700; font-size:18px; opacity:.9}
-    .small{font-size:12px; color:var(--muted)}
-
-    /* タブバー */
-    .tabbar-wrap{position:sticky; top:0; z-index:20; padding-bottom:6px; background:linear-gradient(180deg, rgba(11,12,16,1) 70%, rgba(11,12,16,0));}
-    .tabbar{display:flex; gap:8px; overflow-x:auto; padding:8px 2px; scroll-snap-type:x proximity}
-    .tabbar::-webkit-scrollbar{display:none}
-    .pill{flex:0 0 auto; display:flex; align-items:center; gap:8px; padding:8px 12px; border-radius:999px;
-      background:var(--card); color:var(--text); box-shadow:var(--shadow); scroll-snap-align:start; position:relative}
-    .pill.active{outline:2px solid var(--accent);}
-    .pill .name{max-width:36ch; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
-    .pill .handle{font-size:16px; opacity:.6; cursor:grab}
-    .pill .handle:active{cursor:grabbing}
-    .pill[contenteditable="true"]{outline:2px dashed var(--accent-weak)}
-
-    .pill.add{background:transparent; outline:1px dashed #2b2f37; color:#cbd5e1}
-    .pill.add .plus{font-weight:700}
-
-    /* ボックスリスト */
-    .box-list{display:flex; flex-direction:column; gap:12px; position:relative}
-    .box{display:grid; grid-template-columns:28px 1fr max-content; grid-template-rows:auto auto; column-gap:10px; row-gap:6px; align-items:start; padding:12px; background:var(--card); border-radius:var(--radius); box-shadow:var(--shadow);}
-    .box.dragging{opacity:.96; filter:saturate(1.05); box-shadow:0 14px 40px rgba(0,0,0,.45);}
-    .placeholder{border:2px dashed #334155; border-radius:var(--radius); background:rgba(51,65,85,.15); height:72px}
-
-    .drag{grid-row:1 / span 2; display:flex; align-items:flex-start; justify-content:center; padding-top:8px;}
-    .drag .handle{width:22px; text-align:center; font-size:18px; line-height:1; opacity:.6; user-select:none; cursor:grab}
-    .drag .handle:active{cursor:grabbing}
-
-    textarea.memo{grid-column:2 / span 1; grid-row:1; width:100%; min-height:56px; max-height:45vh; resize:none; border:none; outline:none; border-radius:10px; padding:8px 10px; line-height:1.5; background:#0f1116; color:var(--text);}
-    .actions{grid-column:3; grid-row:1; display:flex; gap:6px; align-items:flex-start; justify-content:flex-end; flex-wrap:nowrap;}
-    .btn{appearance:none; border:none; border-radius:12px; padding:8px 10px; background:#0f1116; color:#cbd5e1; font-size:13px; box-shadow:inset 0 0 0 1px #2b2f37; white-space:nowrap;}
-    $1transform:translateY(1px)}
-    .btn.danger{box-shadow:inset 0 0 0 1px rgba(239,68,68,.5); color:#fecaca}
-
-    .meta{grid-column:2 / span 2; grid-row:2; display:flex; align-items:center; justify-content:space-between; font-size:12px; color:var(--muted)}
-    .char{margin-left:auto}
-
-    /* FAB */
-    .fab{position:fixed; right:16px; bottom:22px; z-index:40}
-    .fab .plus{width:56px; height:56px; border-radius:999px; display:grid; place-items:center; background:var(--accent); color:#052e1b; font-size:26px; font-weight:800; border:none; box-shadow:0 14px 40px rgba(34,197,94,.45)}
-
-    /* トースト */
-    .toast{position:fixed; left:50%; bottom:92px; transform:translateX(-50%); background:#111827; color:#e5e7eb; padding:10px 14px; border-radius:12px; box-shadow:var(--shadow); opacity:0; pointer-events:none; transition:.25s opacity ease}
-    .toast.show{opacity:1}
-
-    /* 汎用 */
-    .no-scroll{touch-action:none; overflow:hidden}
-  </style>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover" />
+<title>スマホメモ（単一ファイル）</title>
+<style>
+  :root{
+    --bg:#e6f3ff; --card:#fff; --chip:#eef6ff; --accent:#7db9ff; --muted:#8b8b8b;
+    --radius:14px;
+    font-family: -apple-system,BlinkMacSystemFont,“Hiragino Kaku Gothic ProN”,Meiryo,Segoe UI, Roboto, "Noto Sans JP", sans-serif;
+  }
+  html,body{height:100%;margin:0;background:var(--bg);}
+  .phone {
+    max-width:420px;margin:18px auto;padding:20px;background:var(--card);border-radius:28px;box-shadow:0 6px 18px rgba(0,0,0,0.08);
+    min-height:80vh;display:flex;flex-direction:column;
+  }
+  header{display:flex;align-items:center;gap:8px;padding-bottom:10px;}
+  .chip-row{display:flex;gap:8px;overflow:auto;padding:6px 4px; -webkit-overflow-scrolling:touch;}
+  .chip{
+    display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border-radius:20px;background:var(--chip);box-shadow:0 6px 10px rgba(0,0,0,0.06);
+    white-space:nowrap;font-size:14px;
+  }
+  .chip.selected{background:var(--accent);color:#fff;box-shadow:none;}
+  .chip button{background:transparent;border:0;padding:4px;border-radius:6px;cursor:pointer;}
+  .add-tag{background:#dff7dd;color:#1a9a2f;padding:8px;border-radius:10px;}
+  .main{flex:1;overflow:auto;padding:6px 2px;-webkit-overflow-scrolling:touch;}
+  .box-card{margin:12px 6px 0 6px;border-radius:8px;}
+  .toolbar{display:flex;align-items:center;gap:8px;padding:8px;background:rgba(0,0,0,0.03);border-radius:12px;}
+  .toolbar button{border:0;background:#fff;padding:6px 8px;border-radius:10px;box-shadow:0 2px 6px rgba(0,0,0,0.06);font-size:13px;cursor:pointer;}
+  .toolbar .char-count{margin-left:auto;padding:6px 10px;border-radius:999px;background:transparent;color:var(--muted);font-size:13px;}
+  textarea{width:100%;min-height:120px;border:2px solid #000000;box-sizing:border-box;border-radius:6px;padding:12px;margin-top:8px;font-size:15px;resize:vertical;background:#fff;}
+  .floating-add{position:fixed;right:24px;bottom:40px;background:#7be09b;color:#fff;border-radius:999px;padding:14px;box-shadow:0 6px 16px rgba(0,0,0,0.18);border:0;font-size:20px;cursor:pointer;}
+  .top-actions{display:flex;align-items:center;gap:8px;margin-left:auto;}
+  .meta{font-size:12px;color:var(--muted);padding-left:6px;}
+  /* small screens */
+  @media (max-width:420px){
+    .phone{margin:8px;border-radius:18px;padding:14px;}
+    textarea{min-height:140px;}
+    .floating-add{right:16px;bottom:24px}
+  }
+</style>
 </head>
 <body>
-  <div class="app" id="app">
-    <div class="header">
-      <div class="title">メモ（Tabs × Boxes）</div>
-      <div class="small">自動保存 / 端末内</div>
-    </div>
+  <div class="phone" role="application" aria-label="メモアプリ">
+    <header>
+      <div style="font-weight:700;font-size:18px">メモ</div>
+      <div class="top-actions">
+        <div class="meta" id="savedMeta">自動保存: —</div>
+      </div>
+    </header>
 
-    <div class="tabbar-wrap">
-      <div class="tabbar" id="tabbar" aria-label="タブバー"></div>
-    </div>
+    <div class="chip-row" id="tagBar" aria-label="タブ一覧"></div>
 
-    <div class="box-list" id="boxList" aria-label="ボックス一覧"></div>
+    <div class="main" id="mainArea"></div>
 
-    <div class="fab">
-      <button class="plus" id="addBoxFab" title="ボックス追加">＋</button>
-    </div>
-
-    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <button class="floating-add" id="addBoxFloating" title="このタブにボックスを追加">＋</button>
   </div>
 
-  <script>
-    // —— データ管理 ——
-    const STORAGE_KEY = 'mobile-memo-v1';
+<script>
+(function(){
+  // --- データ構造 ---
+  // { tabs: [ { id, name, boxes: [ {id, content} ] } ], activeTabId }
+  const STORAGE_KEY = 'mobile_memo_app_v1';
+  const saveMetaEl = document.getElementById('savedMeta');
+  let state = null;
+  const debounce = (fn, ms=800)=>{ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms); }; };
 
-    const uid = () => Math.random().toString(36).slice(2) + Date.now().toString(36);
+  // --- ユーティリティ ---
+  const uid = (n=8)=>Math.random().toString(36).slice(2,2+n);
+  const nowStr = ()=>new Date().toLocaleString();
+  const qs = sel=>document.querySelector(sel);
+  const qsa = sel=>Array.from(document.querySelectorAll(sel));
 
-    function defaultState(){
-      const firstTabId = uid();
-      return {
-        tabs:[{ id:firstTabId, name:'メイン', boxes:[] }],
-        activeTabId:firstTabId
-      };
+  // --- 初期化 ---
+  function defaultState(){
+    return {
+      tabs: [
+        { id: uid(), name: 'ノート', boxes: [ {id: uid(), content: ''} ] }
+      ],
+      activeTabId: null
+    };
+  }
+
+  function load(){
+    try{
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if(!raw) { state = defaultState(); state.activeTabId = state.tabs[0].id; return; }
+      state = JSON.parse(raw);
+      if(!state || !state.tabs || state.tabs.length===0) { state = defaultState(); }
+      if(!state.activeTabId) state.activeTabId = state.tabs[0].id;
+    }catch(e){
+      console.error('load error', e);
+      state = defaultState();
     }
+  }
 
-    function loadState(){
-      try{
-        const raw = localStorage.getItem(STORAGE_KEY);
-        if(!raw){
-          const s = defaultState();
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(s));
-          return s;
-        }
-        const s = JSON.parse(raw);
-        if(!s.tabs?.length){ return defaultState(); }
-        // データの整形（古い形式対策）
-        s.tabs.forEach(t=>{ t.boxes = Array.isArray(t.boxes)? t.boxes : []; });
-        if(!s.activeTabId || !s.tabs.find(t=>t.id===s.activeTabId)) s.activeTabId = s.tabs[0].id;
-        return s;
-      }catch(e){
-        console.warn('loadState error', e);
-        const s = defaultState();
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(s));
-        return s;
-      }
-    }
-
-    function saveState(){
+  function save(immediate=false){
+    try{
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      saveMetaEl.textContent = '自動保存: ' + nowStr();
+    }catch(e){
+      console.error('save error', e);
     }
-    const debounce = (fn,ms=250)=>{ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn.apply(null,a),ms); } };
-    const saveStateDebounced = debounce(saveState, 200);
+  }
+  const saveDebounced = debounce(()=>save());
 
-    let state = loadState();
+  // --- DOM 更新 ---
+  const tagBar = document.getElementById('tagBar');
+  const mainArea = document.getElementById('mainArea');
 
-    // —— 描画 ——
-    const tabbar = document.getElementById('tabbar');
-    const list = document.getElementById('boxList');
-    const toastEl = document.getElementById('toast');
-
-    function render(){ renderTabs(); renderBoxes(); }
-
-    function renderTabs(){
-      tabbar.innerHTML = '';
-      const frag = document.createDocumentFragment();
-
-      state.tabs.forEach((tab, idx)=>{
-        const pill = document.createElement('div');
-        pill.className = 'pill' + (tab.id===state.activeTabId ? ' active' : '');
-        pill.dataset.id = tab.id;
-        pill.setAttribute('role','button');
-        pill.setAttribute('aria-label', `タブ ${tab.name}`);
-
-        const handle = document.createElement('div');
-        handle.className = 'handle';
-        handle.textContent = '≡';
-
-        const name = document.createElement('span');
-        name.className = 'name';
-        name.textContent = tab.name;
-
-        pill.append(handle, name);
-        frag.appendChild(pill);
+  function renderTags(){
+    tagBar.innerHTML = '';
+    state.tabs.forEach(tab=>{
+      const chip = document.createElement('div');
+      chip.className = 'chip' + (tab.id===state.activeTabId?' selected':'');
+      chip.dataset.id = tab.id;
+      chip.innerHTML = `<span class="label">${escapeHtml(tab.name)}</span>`;
+      // double click to rename
+      chip.addEventListener('dblclick', (e)=>{
+        const newName = prompt('タブ名を入力してください', tab.name);
+        if(newName!==null){
+          tab.name = newName.trim()||tab.name;
+          saveDebounced();
+          renderTags();
+        }
+      });
+      chip.addEventListener('click', ()=>{
+        if(state.activeTabId === tab.id) return;
+        state.activeTabId = tab.id;
+        saveDebounced();
+        render();
       });
 
-      // 追加ボタン
-      const add = document.createElement('div');
-      add.className = 'pill add';
-      add.innerHTML = '<span class="plus">＋</span><span>追加</span>';
-      add.addEventListener('click', ()=>{
-        const id = uid();
-        state.tabs.unshift({ id, name:'新しいタブ', boxes:[] });
-        state.activeTabId = id;
-        saveState();
-        renderTabs();
-        renderBoxes();
-        // 編集モードへ
-        requestAnimationFrame(()=>{
-          const pill = tabbar.querySelector(`.pill[data-id="${id}"] .name`);
-          if(pill){ enableInlineEdit(pill, id); }
-        });
-      });
-      frag.appendChild(add);
-
-      tabbar.appendChild(frag);
-    }
-
-    function renderBoxes(){
-      list.innerHTML = '';
-      const tab = state.tabs.find(t=>t.id===state.activeTabId);
-      if(!tab){ return; }
-      const frag = document.createDocumentFragment();
-
-      tab.boxes.forEach(box=> frag.appendChild(renderBox(box)));
-      list.appendChild(frag);
-    }
-
-    function renderBox(box){
-      const wrap = document.createElement('div');
-      wrap.className = 'box';
-      wrap.dataset.id = box.id;
-
-      const drag = document.createElement('div');
-      drag.className = 'drag';
-      drag.innerHTML = '<div class="handle" title="ドラッグで並び替え">≡</div>';
-
-      const ta = document.createElement('textarea');
-      ta.className = 'memo';
-      ta.placeholder = 'メモ…';
-      ta.value = box.text || '';
-      autoResize(ta);
-      ta.addEventListener('input', e=>{
-        const t = currentTab();
-        const b = t.boxes.find(x=>x.id===box.id);
-        if(!b) return;
-        b.text = ta.value;
-        autoResize(ta);
-        updateCharCount(wrap, b.text);
-        saveStateDebounced();
-      });
-
-      const actions = document.createElement('div');
-      actions.className = 'actions';
-      const copyBtn = document.createElement('button');
-      copyBtn.className = 'btn';
-      copyBtn.textContent = 'コピー';
-      copyBtn.addEventListener('click', async()=>{
-        try{ await navigator.clipboard.writeText(ta.value); showToast('コピーしました'); }
-        catch{ showToast('コピーに失敗しました'); }
-      });
+      // delete button
       const delBtn = document.createElement('button');
-      delBtn.className = 'btn danger';
+      delBtn.title = 'タブ削除';
+      delBtn.innerHTML = '✕';
+      delBtn.style.marginLeft='8px';
+      delBtn.addEventListener('click',(ev)=>{
+        ev.stopPropagation();
+        if(!confirm(`タブ「${tab.name}」を削除しますか？（このタブ内のメモもすべて削除されます）`)) return;
+        state.tabs = state.tabs.filter(t=>t.id!==tab.id);
+        if(state.tabs.length===0){
+          state = defaultState();
+        }
+        if(state.activeTabId === tab.id) state.activeTabId = state.tabs[0].id;
+        saveDebounced();
+        render();
+      });
+      chip.appendChild(delBtn);
+      tagBar.appendChild(chip);
+    });
+
+    // add tag button
+    const add = document.createElement('button');
+    add.className='chip add-tag';
+    add.innerHTML = '＋ タブ追加';
+    add.addEventListener('click', ()=>{
+      const name = prompt('新しいタブ名を入力してください','新しいノート');
+      if(name===null) return;
+      const t = {id: uid(), name: name.trim()||'ノート', boxes: [ {id: uid(), content: ''} ]};
+      state.tabs.push(t);
+      state.activeTabId = t.id;
+      saveDebounced();
+      render();
+    });
+    tagBar.appendChild(add);
+  }
+
+  function renderMain(){
+    mainArea.innerHTML = '';
+    const tab = state.tabs.find(t=>t.id===state.activeTabId);
+    if(!tab) return;
+    tab.boxes.forEach((box, idx)=>{
+      const card = document.createElement('div');
+      card.className = 'box-card';
+
+      const toolbar = document.createElement('div');
+      toolbar.className = 'toolbar';
+
+      // add below
+      const addBelow = document.createElement('button');
+      addBelow.textContent = '＋ 下にボックスを追加';
+      addBelow.addEventListener('click', ()=>{
+        const nb = {id: uid(), content: ''};
+        tab.boxes.splice(idx+1,0,nb);
+        saveDebounced();
+        render();
+        focusBox(nb.id);
+      });
+      toolbar.appendChild(addBelow);
+
+      // copy
+      const copyBtn = document.createElement('button');
+      copyBtn.textContent = 'コピー';
+      copyBtn.addEventListener('click', async ()=>{
+        try{
+          await navigator.clipboard.writeText(box.content || '');
+          copyBtn.textContent = 'コピー済';
+          setTimeout(()=>copyBtn.textContent='コピー',700);
+        }catch(e){
+          alert('コピーに失敗しました');
+        }
+      });
+      toolbar.appendChild(copyBtn);
+
+      // delete
+      const delBtn = document.createElement('button');
       delBtn.textContent = '削除';
-      delBtn.addEventListener('click', ()=> deleteBox(box.id));
-      actions.append(copyBtn, delBtn);
+      delBtn.addEventListener('click', ()=>{
+        if(!confirm('このボックスを削除しますか？')) return;
+        tab.boxes.splice(idx,1);
+        if(tab.boxes.length===0) tab.boxes.push({id: uid(), content: ''});
+        saveDebounced();
+        render();
+      });
+      toolbar.appendChild(delBtn);
 
-      const meta = document.createElement('div');
-      meta.className = 'meta';
-      const created = new Date(box.createdAt || Date.now());
-      meta.innerHTML = `<span>${created.toLocaleDateString()} ${created.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span><span class="char"></span>`;
+      // char count
+      const charCount = document.createElement('div');
+      charCount.className = 'char-count';
+      charCount.textContent = `${(box.content||'').length}文字`;
+      toolbar.appendChild(charCount);
 
-      wrap.append(drag, ta, actions, meta);
-      updateCharCount(wrap, box.text||'');
-      return wrap;
-    }
+      // textarea
+      const ta = document.createElement('textarea');
+      ta.value = box.content || '';
+      ta.placeholder = 'ここにメモを入力';
+      ta.addEventListener('input', (e)=>{
+        box.content = e.target.value;
+        charCount.textContent = `${e.target.value.length}文字`;
+        saveDebounced();
+      });
 
-    function updateCharCount(boxEl, text){
-      const el = boxEl.querySelector('.char');
-      el.textContent = `${[...String(text)].length} 文字`;
-    }
-
-    function currentTab(){ return state.tabs.find(t=>t.id===state.activeTabId); }
-
-    // —— イベント（タブ） ——
-    tabbar.addEventListener('click', (e)=>{
-      const pill = e.target.closest('.pill');
-      if(!pill || pill.classList.contains('add')) return;
-      const id = pill.dataset.id;
-      if(!id) return;
-      state.activeTabId = id;
-      saveState();
-      renderTabs();
-      renderBoxes();
+      card.appendChild(toolbar);
+      card.appendChild(ta);
+      mainArea.appendChild(card);
     });
+  }
 
-    // タブ名インライン編集（シングルタップで）
-    tabbar.addEventListener('dblclick', (e)=>{ // PCでも試せるようにdblclick
-      const name = e.target.closest('.pill:not(.add) .name');
-      if(name){ enableInlineEdit(name, name.closest('.pill').dataset.id); }
-    });
-    tabbar.addEventListener('touchend', (e)=>{ // モバイル: 長押しで削除、通常タップで選択／編集
-      const pill = e.target.closest('.pill');
-      if(!pill || pill.classList.contains('add')) return;
-      // 200ms 以内に name をもう一度タップしたら編集…は複雑なのでヘッダ右ラベルで案内に留める
-    }, {passive:true});
+  function focusBox(id){
+    // フォーカスを該当textareaへ（レンダリング後）
+    setTimeout(()=>{
+      const idx = state.tabs.find(t=>t.id===state.activeTabId).boxes.findIndex(b=>b.id===id);
+      if(idx<0) return;
+      const textarea = mainArea.querySelectorAll('textarea')[idx];
+      if(textarea) textarea.focus();
+    },200);
+  }
 
-    function enableInlineEdit(nameEl, tabId){
-      nameEl.contentEditable = 'true';
-      nameEl.focus();
-      // カーソル末尾
-      document.getSelection().selectAllChildren(nameEl);
-      document.getSelection().collapseToEnd();
-      const finish = ()=>{
-        nameEl.contentEditable = 'false';
-        const t = state.tabs.find(t=>t.id===tabId);
-        if(t){ t.name = nameEl.textContent.trim() || '名称未設定'; saveStateDebounced(); }
-      };
-      const onKey = (ev)=>{ if(ev.key==='Enter'){ ev.preventDefault(); nameEl.blur(); } };
-      nameEl.addEventListener('blur', finish, {once:true});
-      nameEl.addEventListener('keydown', onKey, {once:true});
-    }
+  function render(){
+    renderTags();
+    renderMain();
+  }
 
-    // タブ削除（長押し）
-    let longPressTimer=null;
-    tabbar.addEventListener('pointerdown', (e)=>{
-      const pill = e.target.closest('.pill');
-      if(!pill || pill.classList.contains('add')) return;
-      longPressTimer = setTimeout(()=>{
-        const id = pill.dataset.id; const tab = state.tabs.find(t=>t.id===id);
-        if(!tab) return;
-        if(confirm(`タブ「${tab.name}」を削除しますか？（中のメモも削除）`)){
-          const idx = state.tabs.findIndex(t=>t.id===id);
-          state.tabs.splice(idx,1);
-          if(!state.tabs.length){ Object.assign(state, defaultState()); }
-          if(!state.tabs.find(t=>t.id===state.activeTabId)) state.activeTabId = state.tabs[0].id;
-          saveState(); render(); showToast('タブを削除しました');
-        }
-      }, 600);
-    });
-    window.addEventListener('pointerup', ()=>{ clearTimeout(longPressTimer); longPressTimer=null; }, {passive:true});
+  // --- helpers ---
+  function escapeHtml(s){ return String(s).replace(/[&<>"']/g, (m)=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
 
-    // —— イベント（ボックス） ——
-    document.getElementById('addBoxFab').addEventListener('click', ()=>{
-      const t = currentTab(); if(!t) return;
-      const id = uid();
-      t.boxes.unshift({ id, text:'', createdAt: Date.now() });
-      saveState();
-      renderBoxes();
-      // フォーカス
-      const first = list.querySelector('.box[data-id="'+id+'"] textarea.memo');
-      if(first){ first.focus(); }
-    });
-
-    function deleteBox(boxId){
-      const t = currentTab(); if(!t) return;
-      const idx = t.boxes.findIndex(b=>b.id===boxId);
-      if(idx>=0){ t.boxes.splice(idx,1); saveState(); renderBoxes(); }
-    }
-
-    // —— 自動リサイズ ——
-    function autoResize(ta){
-      ta.style.height = 'auto';
-      ta.style.height = Math.min(ta.scrollHeight, window.innerHeight*0.45) + 'px';
-    }
-
-    // —— トースト ——
-    let toastTimer=null;
-    function showToast(msg){
-      toastEl.textContent = msg; toastEl.classList.add('show');
-      clearTimeout(toastTimer); toastTimer = setTimeout(()=> toastEl.classList.remove('show'), 1400);
-    }
-
-    // —— 並び替え（汎用ドラッグ：縦 / 横） ——
-    function makeReorderable(container, itemSelector, axis, onDrop){
-      let dragging=null, placeholder=null, startX=0, startY=0, offsetX=0, offsetY=0, startRect=null;
-
-      const getItems = ()=> Array.from(container.querySelectorAll(itemSelector));
-
-      function pointerDown(e){
-        const handle = e.target.closest('.handle');
-        const item = e.target.closest(itemSelector);
-        if(!handle || !item) return;
-        e.preventDefault();
-        dragging = item;
-        item.classList.add('dragging');
-        startRect = item.getBoundingClientRect();
-        startX = e.clientX; startY = e.clientY;
-        offsetX = startX - startRect.left; offsetY = startY - startRect.top;
-
-        placeholder = document.createElement(item.tagName==='DIV' ? 'div' : 'div');
-        placeholder.className = 'placeholder';
-        placeholder.style.height = startRect.height + 'px';
-        placeholder.style.width = startRect.width + 'px';
-        item.after(placeholder);
-
-        // 固定配置
-        item.style.position='fixed';
-        item.style.left = startRect.left + 'px';
-        item.style.top = startRect.top + 'px';
-        item.style.width = startRect.width + 'px';
-        item.style.zIndex = 50;
-
-        document.body.classList.add('no-scroll');
-        window.addEventListener('pointermove', pointerMove, {passive:false});
-        window.addEventListener('pointerup', pointerUp, {once:true});
-      }
-
-      function pointerMove(e){
-        if(!dragging) return;
-        e.preventDefault();
-        const x = e.clientX - offsetX; const y = e.clientY - offsetY;
-        dragging.style.left = x + 'px';
-        dragging.style.top = y + 'px';
-
-        const items = getItems().filter(i=>i!==dragging);
-        if(axis==='y'){
-          // どの位置に入れるか
-          let placed=false;
-          for(const it of items){
-            const r = it.getBoundingClientRect();
-            const mid = r.top + r.height/2;
-            if(y + startRect.height/2 < mid){
-              it.before(placeholder); placed=true; break;
-            }
-          }
-          if(!placed){ container.appendChild(placeholder); }
-        }else{
-          let placed=false;
-          for(const it of items){
-            const r = it.getBoundingClientRect();
-            const mid = r.left + r.width/2;
-            if(x + startRect.width/2 < mid){ it.before(placeholder); placed=true; break; }
-          }
-          if(!placed){ container.appendChild(placeholder); }
-        }
-      }
-
-      function pointerUp(){
-        window.removeEventListener('pointermove', pointerMove);
-        document.body.classList.remove('no-scroll');
-        if(!dragging) return;
-        placeholder.replaceWith(dragging);
-        dragging.style.position=''; dragging.style.left=''; dragging.style.top=''; dragging.style.width=''; dragging.style.zIndex=''; dragging.classList.remove('dragging');
-
-        // 新しい順序を通知
-        const ids = getItems().map(el=>el.dataset.id).filter(Boolean);
-        onDrop(ids);
-
-        dragging=null; placeholder=null; startRect=null;
-      }
-
-      container.addEventListener('pointerdown', pointerDown);
-    }
-
-    // ボックス並び替え：縦
-    makeReorderable(list, '.box', 'y', (ids)=>{
-      const t = currentTab(); if(!t) return;
-      const map = new Map(t.boxes.map(b=>[b.id,b]));
-      t.boxes = ids.map(id=> map.get(id)).filter(Boolean);
-      saveState();
-    });
-
-    // タブ並び替え：横
-    makeReorderable(tabbar, '.pill:not(.add)', 'x', (ids)=>{
-      const map = new Map(state.tabs.map(t=>[t.id,t]));
-      state.tabs = ids.map(id=> map.get(id)).filter(Boolean);
-      saveState();
-      renderTabs();
-    });
-
-    // 初期描画
+  // --- events ---
+  document.getElementById('addBoxFloating').addEventListener('click', ()=>{
+    const tab = state.tabs.find(t=>t.id===state.activeTabId);
+    if(!tab) return;
+    const nb = {id: uid(), content: ''};
+    tab.boxes.push(nb);
+    saveDebounced();
     render();
-  </script>
+    focusBox(nb.id);
+  });
+
+  // keyboard shortcut: n -> new tab (for desktop testing)
+  document.addEventListener('keydown', (e)=>{
+    if(e.key === 'n' && (e.ctrlKey || e.metaKey)){ e.preventDefault();
+      const name = prompt('新しいタブ名を入力してください','新しいノート');
+      if(name===null) return;
+      const t = {id: uid(), name: name.trim()||'ノート', boxes: [ {id: uid(), content: ''} ]};
+      state.tabs.push(t);
+      state.activeTabId = t.id;
+      saveDebounced();
+      render();
+    }
+  });
+
+  // --- start ---
+  load();
+  if(!state.activeTabId) state.activeTabId = state.tabs[0].id;
+  render();
+
+  // initial saveMeta
+  saveMetaEl.textContent = '読み込み: ' + nowStr();
+
+  // save periodically in case of long inactivity (safety)
+  setInterval(()=>save(), 30000);
+
+  // save on visibility change
+  document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='hidden') save(); });
+
+})();
+</script>
 </body>
 </html>
