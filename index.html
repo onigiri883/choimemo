@@ -1,374 +1,452 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ja">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-<title>ChoiMemo（文字数表示付き・シングルファイル）</title>
-<style>
-:root{--bg:#fafafa;--card:#fff;--accent:#0b84ff;--muted:#666}
-html,body{height:100%;margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,'Hiragino Kaku Gothic ProN',Meiryo,sans-serif;background:var(--bg);color:#111}
-.app{display:flex;flex-direction:column;height:100vh;max-width:640px;margin:0 auto;border-left:1px solid #eee;border-right:1px solid #eee}
-.header{display:flex;align-items:center;padding:8px 12px;background:linear-gradient(0deg,rgba(255,255,255,0.6),transparent);gap:8px}
-.brand{font-weight:700;font-size:16px}
-.controls{margin-left:auto;display:flex;gap:8px}
-.btn{background:#fff;border:1px solid #ddd;padding:6px 8px;border-radius:8px;font-size:14px}
-.tabbar{display:flex;gap:8px;align-items:center;padding:8px;overflow:auto;white-space:nowrap;background:transparent}
-.tab{padding:6px 12px;border-radius:18px;background:var(--card);border:1px solid #e6e6e6;display:inline-flex;align-items:center;gap:8px}
-.tab[aria-selected="true"]{box-shadow:0 2px 8px rgba(11,132,255,0.12);border-color:var(--accent)}
-.tab input{border:none;background:transparent;font-weight:600}
-.content{flex:1;overflow:auto;padding:12px}
-.box{background:var(--card);border:1px solid #e5e5e5;border-radius:10px;padding:10px;margin-bottom:10px;display:flex;gap:8px;align-items:flex-start}
-.handle{width:28px;height:28px;border-radius:6px;border:1px dashed #ccc;display:flex;align-items:center;justify-content:center;font-size:16px;color:#999}
-.ta{flex:1;border:none;outline:none;font-size:15px;line-height:1.4;resize:none;background:transparent}
-.charcount{font-size:12px;color:var(--muted);margin-top:6px;text-align:right}
-.fab{position:fixed;right:18px;bottom:22px;width:56px;height:56px;border-radius:999px;background:var(--accent);color:#fff;font-size:34px;display:flex;align-items:center;justify-content:center;box-shadow:0 6px 18px rgba(11,132,255,0.24);border:none}
-.small{font-size:13px;padding:4px 6px}
-.footer{padding:6px 12px;font-size:13px;color:var(--muted);display:flex;gap:8px;align-items:center}
-.hidden{display:none}
-.warning{color:#b45309}
-.modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,0.35);display:flex;align-items:center;justify-content:center}
-.modal{background:#fff;padding:16px;border-radius:10px;max-width:92%;}
-@media (prefers-color-scheme:dark){:root{--bg:#0b0d10;--card:#0f1417;--accent:#2f9bff;--muted:#9aa6b2}body{color:#e6eef8} .tab{border-color:#222} .box{border-color:#222}}
-</style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+  <title>モバイル用メモ（単一HTML）</title>
+  <style>
+    :root{
+      --bg:#0b0c10; /* ダーク背景 */
+      --card:#16181d;
+      --muted:#6b7280;
+      --text:#e5e7eb;
+      --accent:#22c55e; /* 緑系 */
+      --accent-weak:#2dd4bf; /* 補助 */
+      --danger:#ef4444;
+      --shadow:0 8px 24px rgba(0,0,0,.25);
+      --radius:16px;
+    }
+    *{box-sizing:border-box;-webkit-tap-highlight-color: transparent;}
+    html,body{height:100%}
+    body{
+      margin:0; background:var(--bg); color:var(--text);
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      line-height:1.5; letter-spacing:.1px;
+    }
+    .app{min-height:100vh; display:flex; flex-direction:column; gap:12px; padding:16px 14px 96px}
+
+    /* ヘッダ（アプリ名＋アクション） */
+    .header{display:flex; align-items:center; justify-content:space-between;}
+    .title{font-weight:700; font-size:18px; opacity:.9}
+    .small{font-size:12px; color:var(--muted)}
+
+    /* タブバー */
+    .tabbar-wrap{position:sticky; top:0; z-index:20; padding-bottom:6px; background:linear-gradient(180deg, rgba(11,12,16,1) 70%, rgba(11,12,16,0));}
+    .tabbar{display:flex; gap:8px; overflow-x:auto; padding:8px 2px; scroll-snap-type:x proximity}
+    .tabbar::-webkit-scrollbar{display:none}
+    .pill{flex:0 0 auto; display:flex; align-items:center; gap:8px; padding:8px 12px; border-radius:999px;
+      background:var(--card); color:var(--text); box-shadow:var(--shadow); scroll-snap-align:start; position:relative}
+    .pill.active{outline:2px solid var(--accent);}
+    .pill .name{max-width:36ch; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+    .pill .handle{font-size:16px; opacity:.6; cursor:grab}
+    .pill .handle:active{cursor:grabbing}
+    .pill[contenteditable="true"]{outline:2px dashed var(--accent-weak)}
+
+    .pill.add{background:transparent; outline:1px dashed #2b2f37; color:#cbd5e1}
+    .pill.add .plus{font-weight:700}
+
+    /* ボックスリスト */
+    .box-list{display:flex; flex-direction:column; gap:12px; position:relative}
+    .box{display:grid; grid-template-columns:28px 1fr max-content; grid-template-rows:auto auto; column-gap:10px; row-gap:6px; align-items:start; padding:12px; background:var(--card); border-radius:var(--radius); box-shadow:var(--shadow);}
+    .box.dragging{opacity:.96; filter:saturate(1.05); box-shadow:0 14px 40px rgba(0,0,0,.45);}
+    .placeholder{border:2px dashed #334155; border-radius:var(--radius); background:rgba(51,65,85,.15); height:72px}
+
+    .drag{grid-row:1 / span 2; display:flex; align-items:flex-start; justify-content:center; padding-top:8px;}
+    .drag .handle{width:22px; text-align:center; font-size:18px; line-height:1; opacity:.6; user-select:none; cursor:grab}
+    .drag .handle:active{cursor:grabbing}
+
+    textarea.memo{grid-column:2 / span 1; grid-row:1; width:100%; min-height:56px; max-height:45vh; resize:none; border:none; outline:none; border-radius:10px; padding:8px 10px; line-height:1.5; background:#0f1116; color:var(--text);}
+    .actions{grid-column:3; grid-row:1; display:flex; gap:6px; align-items:flex-start; justify-content:flex-end; flex-wrap:nowrap;}
+    .btn{appearance:none; border:none; border-radius:12px; padding:8px 10px; background:#0f1116; color:#cbd5e1; font-size:13px; box-shadow:inset 0 0 0 1px #2b2f37; white-space:nowrap;}
+    $1transform:translateY(1px)}
+    .btn.danger{box-shadow:inset 0 0 0 1px rgba(239,68,68,.5); color:#fecaca}
+
+    .meta{grid-column:2 / span 2; grid-row:2; display:flex; align-items:center; justify-content:space-between; font-size:12px; color:var(--muted)}
+    .char{margin-left:auto}
+
+    /* FAB */
+    .fab{position:fixed; right:16px; bottom:22px; z-index:40}
+    .fab .plus{width:56px; height:56px; border-radius:999px; display:grid; place-items:center; background:var(--accent); color:#052e1b; font-size:26px; font-weight:800; border:none; box-shadow:0 14px 40px rgba(34,197,94,.45)}
+
+    /* トースト */
+    .toast{position:fixed; left:50%; bottom:92px; transform:translateX(-50%); background:#111827; color:#e5e7eb; padding:10px 14px; border-radius:12px; box-shadow:var(--shadow); opacity:0; pointer-events:none; transition:.25s opacity ease}
+    .toast.show{opacity:1}
+
+    /* 汎用 */
+    .no-scroll{touch-action:none; overflow:hidden}
+  </style>
 </head>
 <body>
-<div class="app" id="app">
-  <div class="header">
-    <div class="brand">ChoiMemo</div>
-    <div class="controls">
-      <button id="undoBtn" class="btn small" aria-label="操作を取り消す">Undo</button>
-      <button id="exportBtn" class="btn small" aria-label="JSONエクスポート">Export</button>
-      <button id="importBtn" class="btn small" aria-label="JSONインポート">Import</button>
-      <input id="fileInput" type="file" accept="application/json" class="hidden" />
+  <div class="app" id="app">
+    <div class="header">
+      <div class="title">メモ（Tabs × Boxes）</div>
+      <div class="small">自動保存 / 端末内</div>
     </div>
+
+    <div class="tabbar-wrap">
+      <div class="tabbar" id="tabbar" aria-label="タブバー"></div>
+    </div>
+
+    <div class="box-list" id="boxList" aria-label="ボックス一覧"></div>
+
+    <div class="fab">
+      <button class="plus" id="addBoxFab" title="ボックス追加">＋</button>
+    </div>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
   </div>
-  <div id="tabbar" class="tabbar" role="tablist" aria-label="タブ一覧">
-    <!-- tabs go here -->
-    <button id="addTabBtn" class="tab" aria-label="タブを追加">＋</button>
-  </div>
-  <div class="content" id="content" tabindex="0">
-    <!-- boxes go here -->
-  </div>
-  <div class="footer">
-    <div id="status">保存状態: <span id="saveState">—</span></div>
-    <div style="margin-left:auto" id="sizeInfo"></div>
-  </div>
-  <button id="addBoxFab" class="fab" aria-label="ボックスを追加">＋</button>
-</div>
 
-<!-- Confirm modal -->
-<div id="confirmModal" class="hidden" role="dialog" aria-modal="true">
-  <div class="modal-backdrop" id="modalBackdrop">
-    <div class="modal" id="modalContent" role="document"></div>
-  </div>
-</div>
+  <script>
+    // —— データ管理 ——
+    const STORAGE_KEY = 'mobile-memo-v1';
 
-<script>
-/* ChoiMemo (with per-box character count)
- Features summary (same as before) + per-box char count display and remaining indicator
-*/
+    const uid = () => Math.random().toString(36).slice(2) + Date.now().toString(36);
 
-const STORAGE_KEY = 'choimemo.v1';
-const SAVE_DEBOUNCE = 500;
-const MAX_BOX_CHARS = 10000;
-const WARN_TOTAL_BYTES = 5 * 1024 * 1024; // 5MB
+    function defaultState(){
+      const firstTabId = uid();
+      return {
+        tabs:[{ id:firstTabId, name:'メイン', boxes:[] }],
+        activeTabId:firstTabId
+      };
+    }
 
-let state = { meta:{version:1}, tabs:[] };
-let undoStack = [];
-let isComposing = false;
-let saveTimer = null;
-let lastSaved = 0;
-
-const app = document.getElementById('app');
-const tabbar = document.getElementById('tabbar');
-const content = document.getElementById('content');
-const addTabBtn = document.getElementById('addTabBtn');
-const addBoxFab = document.getElementById('addBoxFab');
-const saveStateEl = document.getElementById('saveState');
-const sizeInfo = document.getElementById('sizeInfo');
-const undoBtn = document.getElementById('undoBtn');
-const exportBtn = document.getElementById('exportBtn');
-const importBtn = document.getElementById('importBtn');
-const fileInput = document.getElementById('fileInput');
-const confirmModal = document.getElementById('confirmModal');
-const modalContent = document.getElementById('modalContent');
-
-function uuid(){return 'id-' + Math.random().toString(36).slice(2,10)}
-
-/* --- Persistence --- */
-function pushUndo(){
-  try{
-    const snap = JSON.stringify(state);
-    if(undoStack.length && undoStack[undoStack.length-1] === snap) return;
-    undoStack.push(snap);
-    if(undoStack.length>5) undoStack.shift();
-  }catch(e){console.warn(e)}
-}
-
-function doUndo(){
-  if(!undoStack.length) return alert('Undo履歴がありません');
-  // pop current state if equals
-  undoStack.pop();
-  if(!undoStack.length) return alert('Undoできる履歴がありません');
-  const prev = undoStack.pop();
-  if(!prev) return;
-  state = JSON.parse(prev);
-  renderAll();
-  forceSave();
-}
-
-function saveToStorage(){
-  try{
-    const json = JSON.stringify(state);
-    localStorage.setItem(STORAGE_KEY,json);
-    lastSaved = Date.now();
-    saveStateEl.textContent = '保存済み ' + new Date(lastSaved).toLocaleTimeString();
-    updateSizeInfo();
-  }catch(e){
-    console.error('保存エラー',e);
-    saveStateEl.textContent = '保存失敗';
-  }
-}
-
-function scheduleSave(){
-  if(isComposing) return; // wait for compositionend
-  if(saveTimer) clearTimeout(saveTimer);
-  saveStateEl.textContent = '保存中...';
-  saveTimer = setTimeout(()=>{ saveToStorage(); saveTimer=null; }, SAVE_DEBOUNCE);
-}
-
-function forceSave(){
-  if(saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
-  saveToStorage();
-}
-
-function loadFromStorage(){
-  const raw = localStorage.getItem(STORAGE_KEY);
-  if(!raw) return false;
-  try{
-    const parsed = JSON.parse(raw);
-    if(parsed && parsed.tabs) { state = parsed; return true }
-  }catch(e){console.warn('復元失敗',e)}
-  return false;
-}
-
-function exportJSON(){
-  const blob = new Blob([JSON.stringify(state, null, 2)], {type:'application/json;charset=utf-8'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'choimemo_export_' + new Date().toISOString().slice(0,19).replace(/[:T]/g,'-') + '.json';
-  document.body.appendChild(a); a.click(); a.remove();
-  URL.revokeObjectURL(url);
-}
-
-function importJSONFile(file, mode='merge'){
-  const reader = new FileReader();
-  reader.onload = e => {
-    try{
-      const parsed = JSON.parse(e.target.result);
-      if(!parsed || !Array.isArray(parsed.tabs)) return alert('不正なファイルです');
-      if(mode==='overwrite'){
-        if(!confirm('インポートで上書きします。よろしいですか？')) return;
-        pushUndo();
-        state = parsed; renderAll(); forceSave();
-      }else{
-        pushUndo();
-        parsed.tabs.forEach(t => {
-          const newT = JSON.parse(JSON.stringify(t));
-          newT.id = uuid();
-          if(Array.isArray(newT.boxes)) newT.boxes.forEach(b=>b.id = uuid());
-          state.tabs.push(newT);
-        });
-        renderAll(); forceSave();
+    function loadState(){
+      try{
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if(!raw){
+          const s = defaultState();
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(s));
+          return s;
+        }
+        const s = JSON.parse(raw);
+        if(!s.tabs?.length){ return defaultState(); }
+        // データの整形（古い形式対策）
+        s.tabs.forEach(t=>{ t.boxes = Array.isArray(t.boxes)? t.boxes : []; });
+        if(!s.activeTabId || !s.tabs.find(t=>t.id===s.activeTabId)) s.activeTabId = s.tabs[0].id;
+        return s;
+      }catch(e){
+        console.warn('loadState error', e);
+        const s = defaultState();
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(s));
+        return s;
       }
-    }catch(err){ console.error(err); alert('読み込みに失敗しました') }
-  }
-  reader.readAsText(file);
-}
+    }
 
-function approxBytes(str){ return new Blob([str]).size }
-function updateSizeInfo(){
-  const json = JSON.stringify(state);
-  const bytes = approxBytes(json);
-  const kb = (bytes/1024).toFixed(1);
-  sizeInfo.textContent = `${kb}KB` + (bytes>WARN_TOTAL_BYTES? ' ⚠️大きい':'');
-}
+    function saveState(){
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    }
+    const debounce = (fn,ms=250)=>{ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn.apply(null,a),ms); } };
+    const saveStateDebounced = debounce(saveState, 200);
 
-/* --- Rendering --- */
-function clearElement(el){ while(el.firstChild) el.removeChild(el.firstChild); }
+    let state = loadState();
 
-function renderTab(tab){
-  const btn = document.createElement('button');
-  btn.className='tab';
-  btn.setAttribute('role','tab');
-  btn.draggable = true;
-  btn.dataset.id = tab.id;
-  btn.ariaSelected = 'false';
-  const label = document.createElement('span');
-  label.textContent = tab.name || '無題';
-  label.style.fontWeight='600';
-  label.style.paddingRight='6px';
-  label.addEventListener('click', ()=>{
-    const input = document.createElement('input');
-    input.value = tab.name || '';
-    input.style.width='120px';
-    input.addEventListener('blur', ()=>{ tab.name = input.value || '無題'; pushUndo(); renderAll(); scheduleSave(); });
-    input.addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ input.blur(); } });
-    btn.replaceChild(input,label);
-    input.focus();
-  });
-  btn.appendChild(label);
+    // —— 描画 ——
+    const tabbar = document.getElementById('tabbar');
+    const list = document.getElementById('boxList');
+    const toastEl = document.getElementById('toast');
 
-  const del = document.createElement('button'); del.className='small btn'; del.textContent='×'; del.title='タブ削除';
-  del.addEventListener('click', (ev)=>{ ev.stopPropagation(); confirmAction('タブを削除しますか？', ()=>{ removeTab(tab.id); }); });
-  btn.appendChild(del);
+    function render(){ renderTabs(); renderBoxes(); }
 
-  btn.addEventListener('click', ()=>{ selectTab(tab.id); });
+    function renderTabs(){
+      tabbar.innerHTML = '';
+      const frag = document.createDocumentFragment();
 
-  // drag handlers
-  btn.addEventListener('dragstart', (e)=>{ e.dataTransfer.setData('text/tab-id', tab.id); btn.style.opacity='0.4'; });
-  btn.addEventListener('dragend', ()=>{ btn.style.opacity='1'; });
-  btn.addEventListener('dragover', (e)=>{ e.preventDefault(); });
-  btn.addEventListener('drop', (e)=>{
-    e.preventDefault(); const src = e.dataTransfer.getData('text/tab-id'); if(!src) return;
-    reorderTabs(src, tab.id);
-  });
+      state.tabs.forEach((tab, idx)=>{
+        const pill = document.createElement('div');
+        pill.className = 'pill' + (tab.id===state.activeTabId ? ' active' : '');
+        pill.dataset.id = tab.id;
+        pill.setAttribute('role','button');
+        pill.setAttribute('aria-label', `タブ ${tab.name}`);
 
-  return btn;
-}
+        const handle = document.createElement('div');
+        handle.className = 'handle';
+        handle.textContent = '≡';
 
-function renderTabs(){
-  while(tabbar.childElementCount>1) tabbar.removeChild(tabbar.firstChild);
-  state.tabs.sort((a,b)=> (a.order||0)-(b.order||0));
-  state.tabs.forEach(t=>{ const el = renderTab(t); tabbar.insertBefore(el, addTabBtn); });
-}
+        const name = document.createElement('span');
+        name.className = 'name';
+        name.textContent = tab.name;
 
-function createCharCountEl(box){
-  const cc = document.createElement('div'); cc.className='charcount';
-  cc.textContent = `${(box.content||'').length} / ${MAX_BOX_CHARS}`;
-  return cc;
-}
+        pill.append(handle, name);
+        frag.appendChild(pill);
+      });
 
-function renderBox(box, tabId){
-  const el = document.createElement('div'); el.className='box'; el.dataset.id = box.id; el.draggable = true;
-  const handle = document.createElement('div'); handle.className='handle'; handle.textContent='≡'; handle.title='ドラッグで移動';
-  el.appendChild(handle);
-  const wrapper = document.createElement('div'); wrapper.style.flex='1';
-  const ta = document.createElement('textarea'); ta.className='ta'; ta.value = box.content || '';
-  ta.setAttribute('aria-label','メモ');
-  ta.rows = 1; autoHeight(ta);
+      // 追加ボタン
+      const add = document.createElement('div');
+      add.className = 'pill add';
+      add.innerHTML = '<span class="plus">＋</span><span>追加</span>';
+      add.addEventListener('click', ()=>{
+        const id = uid();
+        state.tabs.unshift({ id, name:'新しいタブ', boxes:[] });
+        state.activeTabId = id;
+        saveState();
+        renderTabs();
+        renderBoxes();
+        // 編集モードへ
+        requestAnimationFrame(()=>{
+          const pill = tabbar.querySelector(`.pill[data-id="${id}"] .name`);
+          if(pill){ enableInlineEdit(pill, id); }
+        });
+      });
+      frag.appendChild(add);
 
-  const cc = createCharCountEl(box);
+      tabbar.appendChild(frag);
+    }
 
-  // IME handling
-  ta.addEventListener('compositionstart', ()=>isComposing=true);
-  ta.addEventListener('compositionend', ()=>{ isComposing=false; scheduleSave(); updateCharCount(cc, ta.value); });
+    function renderBoxes(){
+      list.innerHTML = '';
+      const tab = state.tabs.find(t=>t.id===state.activeTabId);
+      if(!tab){ return; }
+      const frag = document.createDocumentFragment();
 
-  ta.addEventListener('input', ()=>{
-    if(ta.value.length>MAX_BOX_CHARS){ ta.value = ta.value.slice(0,MAX_BOX_CHARS); alert('1ボックスの最大文字数を超えたため切り捨てました'); }
-    box.content = ta.value; box.updatedAt = new Date().toISOString(); autoHeight(ta); updateCharCount(cc, ta.value); pushUndo(); scheduleSave();
-  });
+      tab.boxes.forEach(box=> frag.appendChild(renderBox(box)));
+      list.appendChild(frag);
+    }
 
-  // delete button
-  const del = document.createElement('button'); del.className='small btn'; del.textContent='削除'; del.addEventListener('click',(e)=>{ e.stopPropagation(); confirmAction('このメモを削除しますか？', ()=>{ removeBox(tabId, box.id); }); });
+    function renderBox(box){
+      const wrap = document.createElement('div');
+      wrap.className = 'box';
+      wrap.dataset.id = box.id;
 
-  wrapper.appendChild(ta);
-  wrapper.appendChild(cc);
-  el.appendChild(wrapper);
-  el.appendChild(del);
+      const drag = document.createElement('div');
+      drag.className = 'drag';
+      drag.innerHTML = '<div class="handle" title="ドラッグで並び替え">≡</div>';
 
-  // drag events
-  el.addEventListener('dragstart', (e)=>{ e.dataTransfer.setData('text/box-id', box.id + '||' + tabId); el.style.opacity='0.4'; });
-  el.addEventListener('dragend', ()=>{ el.style.opacity='1'; });
-  el.addEventListener('dragover', (e)=>{ e.preventDefault(); });
-  el.addEventListener('drop', (e)=>{
-    e.preventDefault(); const data = e.dataTransfer.getData('text/box-id'); if(!data) return;
-    const [srcBoxId, srcTabId] = data.split('||'); reorderBoxes(srcTabId, srcBoxId, tabId, box.id);
-  });
+      const ta = document.createElement('textarea');
+      ta.className = 'memo';
+      ta.placeholder = 'メモ…';
+      ta.value = box.text || '';
+      autoResize(ta);
+      ta.addEventListener('input', e=>{
+        const t = currentTab();
+        const b = t.boxes.find(x=>x.id===box.id);
+        if(!b) return;
+        b.text = ta.value;
+        autoResize(ta);
+        updateCharCount(wrap, b.text);
+        saveStateDebounced();
+      });
 
-  return el;
-}
+      const actions = document.createElement('div');
+      actions.className = 'actions';
+      const copyBtn = document.createElement('button');
+      copyBtn.className = 'btn';
+      copyBtn.textContent = 'コピー';
+      copyBtn.addEventListener('click', async()=>{
+        try{ await navigator.clipboard.writeText(ta.value); showToast('コピーしました'); }
+        catch{ showToast('コピーに失敗しました'); }
+      });
+      const delBtn = document.createElement('button');
+      delBtn.className = 'btn danger';
+      delBtn.textContent = '削除';
+      delBtn.addEventListener('click', ()=> deleteBox(box.id));
+      actions.append(copyBtn, delBtn);
 
-function updateCharCount(ccEl, text){
-  const len = text.length;
-  ccEl.textContent = `${len} / ${MAX_BOX_CHARS}`;
-  if(len > MAX_BOX_CHARS*0.9){ ccEl.style.color = '#b45309'; } else { ccEl.style.color = ''; }
-}
+      const meta = document.createElement('div');
+      meta.className = 'meta';
+      const created = new Date(box.createdAt || Date.now());
+      meta.innerHTML = `<span>${created.toLocaleDateString()} ${created.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span><span class="char"></span>`;
 
-function renderBoxesForTab(tab){
-  clearElement(content);
-  const boxes = Array.isArray(tab.boxes)?tab.boxes.slice().sort((a,b)=>(a.order||0)-(b.order||0)):[];
-  boxes.forEach(b=>{ const el = renderBox(b, tab.id); content.appendChild(el); });
-}
+      wrap.append(drag, ta, actions, meta);
+      updateCharCount(wrap, box.text||'');
+      return wrap;
+    }
 
-function renderAll(){
-  renderTabs();
-  const sel = state.tabs.find(t=>t.selected) || state.tabs[0];
-  if(!sel && state.tabs.length===0){
-    const t = {id:uuid(),name:'タブ1',order:0,boxes:[]}; state.tabs.push(t); pushUndo(); forceSave(); renderAll(); return; }
-  state.tabs.forEach(t=> t.selected = (t.id=== (sel?sel.id:state.tabs[0].id)));
-  Array.from(tabbar.querySelectorAll('.tab')).forEach(btn=>{ const id=btn.dataset.id; const t = state.tabs.find(x=>x.id===id); if(t) btn.setAttribute('aria-selected', t.selected?'true':'false'); });
-  if(sel) renderBoxesForTab(sel);
-  updateSizeInfo();
-}
+    function updateCharCount(boxEl, text){
+      const el = boxEl.querySelector('.char');
+      el.textContent = `${[...String(text)].length} 文字`;
+    }
 
-/* --- Mutations --- */
-function addTab(name){ pushUndo(); const id = uuid(); const order = state.tabs.length? Math.max(...state.tabs.map(t=>t.order||0))+1:0; state.tabs.push({id,name:name||'新しいタブ',order,boxes:[]}); selectTab(id); renderAll(); scheduleSave(); }
-function removeTab(tabId){ const idx = state.tabs.findIndex(t=>t.id===tabId); if(idx<0) return; pushUndo(); state.tabs.splice(idx,1); renderAll(); scheduleSave(); }
-function selectTab(tabId){ state.tabs.forEach(t=> t.selected = (t.id===tabId)); renderAll(); }
-function reorderTabs(srcId, targetId){ pushUndo(); const srcIdx = state.tabs.findIndex(t=>t.id===srcId); const targetIdx = state.tabs.findIndex(t=>t.id===targetId); if(srcIdx<0||targetIdx<0) return; const [item] = state.tabs.splice(srcIdx,1); state.tabs.splice(targetIdx,0,item); state.tabs.forEach((t,i)=> t.order=i); renderAll(); scheduleSave(); }
+    function currentTab(){ return state.tabs.find(t=>t.id===state.activeTabId); }
 
-function addBoxToTab(tabId, contentText=''){
-  const tab = state.tabs.find(t=>t.id===tabId) || state.tabs[0]; if(!tab) return;
-  pushUndo(); const id = uuid(); const order = 0; const box = {id,content:contentText,order,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()};
-  tab.boxes = tab.boxes.map(b=>{b.order = (b.order||0)+1; return b});
-  tab.boxes.unshift(box);
-  renderAll(); scheduleSave();
-  setTimeout(()=>{ const el = content.querySelector('.box'); if(el) el.querySelector('.ta').focus(); },80);
-}
+    // —— イベント（タブ） ——
+    tabbar.addEventListener('click', (e)=>{
+      const pill = e.target.closest('.pill');
+      if(!pill || pill.classList.contains('add')) return;
+      const id = pill.dataset.id;
+      if(!id) return;
+      state.activeTabId = id;
+      saveState();
+      renderTabs();
+      renderBoxes();
+    });
 
-function removeBox(tabId, boxId){ const tab = state.tabs.find(t=>t.id===tabId); if(!tab) return; const idx = tab.boxes.findIndex(b=>b.id===boxId); if(idx<0) return; pushUndo(); tab.boxes.splice(idx,1); renderAll(); scheduleSave(); }
+    // タブ名インライン編集（シングルタップで）
+    tabbar.addEventListener('dblclick', (e)=>{ // PCでも試せるようにdblclick
+      const name = e.target.closest('.pill:not(.add) .name');
+      if(name){ enableInlineEdit(name, name.closest('.pill').dataset.id); }
+    });
+    tabbar.addEventListener('touchend', (e)=>{ // モバイル: 長押しで削除、通常タップで選択／編集
+      const pill = e.target.closest('.pill');
+      if(!pill || pill.classList.contains('add')) return;
+      // 200ms 以内に name をもう一度タップしたら編集…は複雑なのでヘッダ右ラベルで案内に留める
+    }, {passive:true});
 
-function reorderBoxes(srcTabId, srcBoxId, tgtTabId, tgtBoxId){ pushUndo(); const srcTab = state.tabs.find(t=>t.id===srcTabId); const tgtTab = state.tabs.find(t=>t.id===tgtTabId); if(!srcTab || !tgtTab) return; const sIdx = srcTab.boxes.findIndex(b=>b.id===srcBoxId); const tIdx = tgtTab.boxes.findIndex(b=>b.id===tgtBoxId); if(sIdx<0||tIdx<0) return; const [item] = srcTab.boxes.splice(sIdx,1); tgtTab.boxes.splice(tIdx,0,item); state.tabs.forEach(t=> t.boxes && t.boxes.forEach((b,i)=> b.order=i)); renderAll(); scheduleSave(); }
+    function enableInlineEdit(nameEl, tabId){
+      nameEl.contentEditable = 'true';
+      nameEl.focus();
+      // カーソル末尾
+      document.getSelection().selectAllChildren(nameEl);
+      document.getSelection().collapseToEnd();
+      const finish = ()=>{
+        nameEl.contentEditable = 'false';
+        const t = state.tabs.find(t=>t.id===tabId);
+        if(t){ t.name = nameEl.textContent.trim() || '名称未設定'; saveStateDebounced(); }
+      };
+      const onKey = (ev)=>{ if(ev.key==='Enter'){ ev.preventDefault(); nameEl.blur(); } };
+      nameEl.addEventListener('blur', finish, {once:true});
+      nameEl.addEventListener('keydown', onKey, {once:true});
+    }
 
-/* --- Helpers --- */
-function autoHeight(ta){ ta.style.height='auto'; ta.style.height = Math.max(48, ta.scrollHeight) + 'px'; }
+    // タブ削除（長押し）
+    let longPressTimer=null;
+    tabbar.addEventListener('pointerdown', (e)=>{
+      const pill = e.target.closest('.pill');
+      if(!pill || pill.classList.contains('add')) return;
+      longPressTimer = setTimeout(()=>{
+        const id = pill.dataset.id; const tab = state.tabs.find(t=>t.id===id);
+        if(!tab) return;
+        if(confirm(`タブ「${tab.name}」を削除しますか？（中のメモも削除）`)){
+          const idx = state.tabs.findIndex(t=>t.id===id);
+          state.tabs.splice(idx,1);
+          if(!state.tabs.length){ Object.assign(state, defaultState()); }
+          if(!state.tabs.find(t=>t.id===state.activeTabId)) state.activeTabId = state.tabs[0].id;
+          saveState(); render(); showToast('タブを削除しました');
+        }
+      }, 600);
+    });
+    window.addEventListener('pointerup', ()=>{ clearTimeout(longPressTimer); longPressTimer=null; }, {passive:true});
 
-function confirmAction(message, onOk){ modalContent.innerHTML = `<p>${message}</p><div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px"><button id='modalNo' class='btn small'>キャンセル</button><button id='modalYes' class='btn small'>OK</button></div>`; confirmModal.classList.remove('hidden');
-  document.getElementById('modalYes').addEventListener('click', ()=>{ confirmModal.classList.add('hidden'); onOk && onOk(); });
-  document.getElementById('modalNo').addEventListener('click', ()=>{ confirmModal.classList.add('hidden'); });
-}
+    // —— イベント（ボックス） ——
+    document.getElementById('addBoxFab').addEventListener('click', ()=>{
+      const t = currentTab(); if(!t) return;
+      const id = uid();
+      t.boxes.unshift({ id, text:'', createdAt: Date.now() });
+      saveState();
+      renderBoxes();
+      // フォーカス
+      const first = list.querySelector('.box[data-id="'+id+'"] textarea.memo');
+      if(first){ first.focus(); }
+    });
 
-/* --- Event wiring --- */
-addTabBtn.addEventListener('click', ()=>{ const name = prompt('タブ名を入力してください','新しいタブ'); if(name!==null) addTab(name); });
-addBoxFab.addEventListener('click', ()=>{ const sel = state.tabs.find(t=>t.selected) || state.tabs[0]; if(!sel) { addTab('タブ1'); return; } addBoxToTab(sel.id); });
+    function deleteBox(boxId){
+      const t = currentTab(); if(!t) return;
+      const idx = t.boxes.findIndex(b=>b.id===boxId);
+      if(idx>=0){ t.boxes.splice(idx,1); saveState(); renderBoxes(); }
+    }
 
-undoBtn.addEventListener('click', ()=> doUndo());
-exportBtn.addEventListener('click', ()=> exportJSON());
-importBtn.addEventListener('click', ()=> fileInput.click());
-fileInput.addEventListener('change', (e)=>{ if(!e.target.files || !e.target.files[0]) return; const file = e.target.files[0]; const mode = confirm('マージ(OK) / 上書き(Cancel) ?\nOK:マージ  Cancel:上書き') ? 'merge' : 'overwrite'; importJSONFile(file, mode); e.target.value=''; });
+    // —— 自動リサイズ ——
+    function autoResize(ta){
+      ta.style.height = 'auto';
+      ta.style.height = Math.min(ta.scrollHeight, window.innerHeight*0.45) + 'px';
+    }
 
-// keyboard shortcuts
-document.addEventListener('keydown', (e)=>{ if((e.ctrlKey||e.metaKey) && e.key === 'z'){ e.preventDefault(); doUndo(); } });
+    // —— トースト ——
+    let toastTimer=null;
+    function showToast(msg){
+      toastEl.textContent = msg; toastEl.classList.add('show');
+      clearTimeout(toastTimer); toastTimer = setTimeout(()=> toastEl.classList.remove('show'), 1400);
+    }
 
-// composition handling set globally
-window.addEventListener('compositionstart', ()=> isComposing = true);
-window.addEventListener('compositionend', ()=> { isComposing = false; scheduleSave(); });
+    // —— 並び替え（汎用ドラッグ：縦 / 横） ——
+    function makeReorderable(container, itemSelector, axis, onDrop){
+      let dragging=null, placeholder=null, startX=0, startY=0, offsetX=0, offsetY=0, startRect=null;
 
-// initial load
-(function init(){
-  const ok = loadFromStorage();
-  if(!ok){
-    state = {meta:{version:1}, tabs:[{id:uuid(),name:'メモ',order:0,boxes:[{id:uuid(),content:'ようこそ — ここにメモを入力してください。',order:0,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()}]}]};
-    saveToStorage();
-  }
-  pushUndo(); renderAll();
-})();
+      const getItems = ()=> Array.from(container.querySelectorAll(itemSelector));
 
-// expose debug
-window.__choimemo = {state, saveToStorage, addTab, addBoxToTab, exportJSON};
+      function pointerDown(e){
+        const handle = e.target.closest('.handle');
+        const item = e.target.closest(itemSelector);
+        if(!handle || !item) return;
+        e.preventDefault();
+        dragging = item;
+        item.classList.add('dragging');
+        startRect = item.getBoundingClientRect();
+        startX = e.clientX; startY = e.clientY;
+        offsetX = startX - startRect.left; offsetY = startY - startRect.top;
 
-</script>
+        placeholder = document.createElement(item.tagName==='DIV' ? 'div' : 'div');
+        placeholder.className = 'placeholder';
+        placeholder.style.height = startRect.height + 'px';
+        placeholder.style.width = startRect.width + 'px';
+        item.after(placeholder);
+
+        // 固定配置
+        item.style.position='fixed';
+        item.style.left = startRect.left + 'px';
+        item.style.top = startRect.top + 'px';
+        item.style.width = startRect.width + 'px';
+        item.style.zIndex = 50;
+
+        document.body.classList.add('no-scroll');
+        window.addEventListener('pointermove', pointerMove, {passive:false});
+        window.addEventListener('pointerup', pointerUp, {once:true});
+      }
+
+      function pointerMove(e){
+        if(!dragging) return;
+        e.preventDefault();
+        const x = e.clientX - offsetX; const y = e.clientY - offsetY;
+        dragging.style.left = x + 'px';
+        dragging.style.top = y + 'px';
+
+        const items = getItems().filter(i=>i!==dragging);
+        if(axis==='y'){
+          // どの位置に入れるか
+          let placed=false;
+          for(const it of items){
+            const r = it.getBoundingClientRect();
+            const mid = r.top + r.height/2;
+            if(y + startRect.height/2 < mid){
+              it.before(placeholder); placed=true; break;
+            }
+          }
+          if(!placed){ container.appendChild(placeholder); }
+        }else{
+          let placed=false;
+          for(const it of items){
+            const r = it.getBoundingClientRect();
+            const mid = r.left + r.width/2;
+            if(x + startRect.width/2 < mid){ it.before(placeholder); placed=true; break; }
+          }
+          if(!placed){ container.appendChild(placeholder); }
+        }
+      }
+
+      function pointerUp(){
+        window.removeEventListener('pointermove', pointerMove);
+        document.body.classList.remove('no-scroll');
+        if(!dragging) return;
+        placeholder.replaceWith(dragging);
+        dragging.style.position=''; dragging.style.left=''; dragging.style.top=''; dragging.style.width=''; dragging.style.zIndex=''; dragging.classList.remove('dragging');
+
+        // 新しい順序を通知
+        const ids = getItems().map(el=>el.dataset.id).filter(Boolean);
+        onDrop(ids);
+
+        dragging=null; placeholder=null; startRect=null;
+      }
+
+      container.addEventListener('pointerdown', pointerDown);
+    }
+
+    // ボックス並び替え：縦
+    makeReorderable(list, '.box', 'y', (ids)=>{
+      const t = currentTab(); if(!t) return;
+      const map = new Map(t.boxes.map(b=>[b.id,b]));
+      t.boxes = ids.map(id=> map.get(id)).filter(Boolean);
+      saveState();
+    });
+
+    // タブ並び替え：横
+    makeReorderable(tabbar, '.pill:not(.add)', 'x', (ids)=>{
+      const map = new Map(state.tabs.map(t=>[t.id,t]));
+      state.tabs = ids.map(id=> map.get(id)).filter(Boolean);
+      saveState();
+      renderTabs();
+    });
+
+    // 初期描画
+    render();
+  </script>
 </body>
 </html>
