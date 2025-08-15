@@ -1,0 +1,374 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<title>ChoiMemo（文字数表示付き・シングルファイル）</title>
+<style>
+:root{--bg:#fafafa;--card:#fff;--accent:#0b84ff;--muted:#666}
+html,body{height:100%;margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,'Hiragino Kaku Gothic ProN',Meiryo,sans-serif;background:var(--bg);color:#111}
+.app{display:flex;flex-direction:column;height:100vh;max-width:640px;margin:0 auto;border-left:1px solid #eee;border-right:1px solid #eee}
+.header{display:flex;align-items:center;padding:8px 12px;background:linear-gradient(0deg,rgba(255,255,255,0.6),transparent);gap:8px}
+.brand{font-weight:700;font-size:16px}
+.controls{margin-left:auto;display:flex;gap:8px}
+.btn{background:#fff;border:1px solid #ddd;padding:6px 8px;border-radius:8px;font-size:14px}
+.tabbar{display:flex;gap:8px;align-items:center;padding:8px;overflow:auto;white-space:nowrap;background:transparent}
+.tab{padding:6px 12px;border-radius:18px;background:var(--card);border:1px solid #e6e6e6;display:inline-flex;align-items:center;gap:8px}
+.tab[aria-selected="true"]{box-shadow:0 2px 8px rgba(11,132,255,0.12);border-color:var(--accent)}
+.tab input{border:none;background:transparent;font-weight:600}
+.content{flex:1;overflow:auto;padding:12px}
+.box{background:var(--card);border:1px solid #e5e5e5;border-radius:10px;padding:10px;margin-bottom:10px;display:flex;gap:8px;align-items:flex-start}
+.handle{width:28px;height:28px;border-radius:6px;border:1px dashed #ccc;display:flex;align-items:center;justify-content:center;font-size:16px;color:#999}
+.ta{flex:1;border:none;outline:none;font-size:15px;line-height:1.4;resize:none;background:transparent}
+.charcount{font-size:12px;color:var(--muted);margin-top:6px;text-align:right}
+.fab{position:fixed;right:18px;bottom:22px;width:56px;height:56px;border-radius:999px;background:var(--accent);color:#fff;font-size:34px;display:flex;align-items:center;justify-content:center;box-shadow:0 6px 18px rgba(11,132,255,0.24);border:none}
+.small{font-size:13px;padding:4px 6px}
+.footer{padding:6px 12px;font-size:13px;color:var(--muted);display:flex;gap:8px;align-items:center}
+.hidden{display:none}
+.warning{color:#b45309}
+.modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,0.35);display:flex;align-items:center;justify-content:center}
+.modal{background:#fff;padding:16px;border-radius:10px;max-width:92%;}
+@media (prefers-color-scheme:dark){:root{--bg:#0b0d10;--card:#0f1417;--accent:#2f9bff;--muted:#9aa6b2}body{color:#e6eef8} .tab{border-color:#222} .box{border-color:#222}}
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <div class="header">
+    <div class="brand">ChoiMemo</div>
+    <div class="controls">
+      <button id="undoBtn" class="btn small" aria-label="操作を取り消す">Undo</button>
+      <button id="exportBtn" class="btn small" aria-label="JSONエクスポート">Export</button>
+      <button id="importBtn" class="btn small" aria-label="JSONインポート">Import</button>
+      <input id="fileInput" type="file" accept="application/json" class="hidden" />
+    </div>
+  </div>
+  <div id="tabbar" class="tabbar" role="tablist" aria-label="タブ一覧">
+    <!-- tabs go here -->
+    <button id="addTabBtn" class="tab" aria-label="タブを追加">＋</button>
+  </div>
+  <div class="content" id="content" tabindex="0">
+    <!-- boxes go here -->
+  </div>
+  <div class="footer">
+    <div id="status">保存状態: <span id="saveState">—</span></div>
+    <div style="margin-left:auto" id="sizeInfo"></div>
+  </div>
+  <button id="addBoxFab" class="fab" aria-label="ボックスを追加">＋</button>
+</div>
+
+<!-- Confirm modal -->
+<div id="confirmModal" class="hidden" role="dialog" aria-modal="true">
+  <div class="modal-backdrop" id="modalBackdrop">
+    <div class="modal" id="modalContent" role="document"></div>
+  </div>
+</div>
+
+<script>
+/* ChoiMemo (with per-box character count)
+ Features summary (same as before) + per-box char count display and remaining indicator
+*/
+
+const STORAGE_KEY = 'choimemo.v1';
+const SAVE_DEBOUNCE = 500;
+const MAX_BOX_CHARS = 10000;
+const WARN_TOTAL_BYTES = 5 * 1024 * 1024; // 5MB
+
+let state = { meta:{version:1}, tabs:[] };
+let undoStack = [];
+let isComposing = false;
+let saveTimer = null;
+let lastSaved = 0;
+
+const app = document.getElementById('app');
+const tabbar = document.getElementById('tabbar');
+const content = document.getElementById('content');
+const addTabBtn = document.getElementById('addTabBtn');
+const addBoxFab = document.getElementById('addBoxFab');
+const saveStateEl = document.getElementById('saveState');
+const sizeInfo = document.getElementById('sizeInfo');
+const undoBtn = document.getElementById('undoBtn');
+const exportBtn = document.getElementById('exportBtn');
+const importBtn = document.getElementById('importBtn');
+const fileInput = document.getElementById('fileInput');
+const confirmModal = document.getElementById('confirmModal');
+const modalContent = document.getElementById('modalContent');
+
+function uuid(){return 'id-' + Math.random().toString(36).slice(2,10)}
+
+/* --- Persistence --- */
+function pushUndo(){
+  try{
+    const snap = JSON.stringify(state);
+    if(undoStack.length && undoStack[undoStack.length-1] === snap) return;
+    undoStack.push(snap);
+    if(undoStack.length>5) undoStack.shift();
+  }catch(e){console.warn(e)}
+}
+
+function doUndo(){
+  if(!undoStack.length) return alert('Undo履歴がありません');
+  // pop current state if equals
+  undoStack.pop();
+  if(!undoStack.length) return alert('Undoできる履歴がありません');
+  const prev = undoStack.pop();
+  if(!prev) return;
+  state = JSON.parse(prev);
+  renderAll();
+  forceSave();
+}
+
+function saveToStorage(){
+  try{
+    const json = JSON.stringify(state);
+    localStorage.setItem(STORAGE_KEY,json);
+    lastSaved = Date.now();
+    saveStateEl.textContent = '保存済み ' + new Date(lastSaved).toLocaleTimeString();
+    updateSizeInfo();
+  }catch(e){
+    console.error('保存エラー',e);
+    saveStateEl.textContent = '保存失敗';
+  }
+}
+
+function scheduleSave(){
+  if(isComposing) return; // wait for compositionend
+  if(saveTimer) clearTimeout(saveTimer);
+  saveStateEl.textContent = '保存中...';
+  saveTimer = setTimeout(()=>{ saveToStorage(); saveTimer=null; }, SAVE_DEBOUNCE);
+}
+
+function forceSave(){
+  if(saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
+  saveToStorage();
+}
+
+function loadFromStorage(){
+  const raw = localStorage.getItem(STORAGE_KEY);
+  if(!raw) return false;
+  try{
+    const parsed = JSON.parse(raw);
+    if(parsed && parsed.tabs) { state = parsed; return true }
+  }catch(e){console.warn('復元失敗',e)}
+  return false;
+}
+
+function exportJSON(){
+  const blob = new Blob([JSON.stringify(state, null, 2)], {type:'application/json;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'choimemo_export_' + new Date().toISOString().slice(0,19).replace(/[:T]/g,'-') + '.json';
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+}
+
+function importJSONFile(file, mode='merge'){
+  const reader = new FileReader();
+  reader.onload = e => {
+    try{
+      const parsed = JSON.parse(e.target.result);
+      if(!parsed || !Array.isArray(parsed.tabs)) return alert('不正なファイルです');
+      if(mode==='overwrite'){
+        if(!confirm('インポートで上書きします。よろしいですか？')) return;
+        pushUndo();
+        state = parsed; renderAll(); forceSave();
+      }else{
+        pushUndo();
+        parsed.tabs.forEach(t => {
+          const newT = JSON.parse(JSON.stringify(t));
+          newT.id = uuid();
+          if(Array.isArray(newT.boxes)) newT.boxes.forEach(b=>b.id = uuid());
+          state.tabs.push(newT);
+        });
+        renderAll(); forceSave();
+      }
+    }catch(err){ console.error(err); alert('読み込みに失敗しました') }
+  }
+  reader.readAsText(file);
+}
+
+function approxBytes(str){ return new Blob([str]).size }
+function updateSizeInfo(){
+  const json = JSON.stringify(state);
+  const bytes = approxBytes(json);
+  const kb = (bytes/1024).toFixed(1);
+  sizeInfo.textContent = `${kb}KB` + (bytes>WARN_TOTAL_BYTES? ' ⚠️大きい':'');
+}
+
+/* --- Rendering --- */
+function clearElement(el){ while(el.firstChild) el.removeChild(el.firstChild); }
+
+function renderTab(tab){
+  const btn = document.createElement('button');
+  btn.className='tab';
+  btn.setAttribute('role','tab');
+  btn.draggable = true;
+  btn.dataset.id = tab.id;
+  btn.ariaSelected = 'false';
+  const label = document.createElement('span');
+  label.textContent = tab.name || '無題';
+  label.style.fontWeight='600';
+  label.style.paddingRight='6px';
+  label.addEventListener('click', ()=>{
+    const input = document.createElement('input');
+    input.value = tab.name || '';
+    input.style.width='120px';
+    input.addEventListener('blur', ()=>{ tab.name = input.value || '無題'; pushUndo(); renderAll(); scheduleSave(); });
+    input.addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ input.blur(); } });
+    btn.replaceChild(input,label);
+    input.focus();
+  });
+  btn.appendChild(label);
+
+  const del = document.createElement('button'); del.className='small btn'; del.textContent='×'; del.title='タブ削除';
+  del.addEventListener('click', (ev)=>{ ev.stopPropagation(); confirmAction('タブを削除しますか？', ()=>{ removeTab(tab.id); }); });
+  btn.appendChild(del);
+
+  btn.addEventListener('click', ()=>{ selectTab(tab.id); });
+
+  // drag handlers
+  btn.addEventListener('dragstart', (e)=>{ e.dataTransfer.setData('text/tab-id', tab.id); btn.style.opacity='0.4'; });
+  btn.addEventListener('dragend', ()=>{ btn.style.opacity='1'; });
+  btn.addEventListener('dragover', (e)=>{ e.preventDefault(); });
+  btn.addEventListener('drop', (e)=>{
+    e.preventDefault(); const src = e.dataTransfer.getData('text/tab-id'); if(!src) return;
+    reorderTabs(src, tab.id);
+  });
+
+  return btn;
+}
+
+function renderTabs(){
+  while(tabbar.childElementCount>1) tabbar.removeChild(tabbar.firstChild);
+  state.tabs.sort((a,b)=> (a.order||0)-(b.order||0));
+  state.tabs.forEach(t=>{ const el = renderTab(t); tabbar.insertBefore(el, addTabBtn); });
+}
+
+function createCharCountEl(box){
+  const cc = document.createElement('div'); cc.className='charcount';
+  cc.textContent = `${(box.content||'').length} / ${MAX_BOX_CHARS}`;
+  return cc;
+}
+
+function renderBox(box, tabId){
+  const el = document.createElement('div'); el.className='box'; el.dataset.id = box.id; el.draggable = true;
+  const handle = document.createElement('div'); handle.className='handle'; handle.textContent='≡'; handle.title='ドラッグで移動';
+  el.appendChild(handle);
+  const wrapper = document.createElement('div'); wrapper.style.flex='1';
+  const ta = document.createElement('textarea'); ta.className='ta'; ta.value = box.content || '';
+  ta.setAttribute('aria-label','メモ');
+  ta.rows = 1; autoHeight(ta);
+
+  const cc = createCharCountEl(box);
+
+  // IME handling
+  ta.addEventListener('compositionstart', ()=>isComposing=true);
+  ta.addEventListener('compositionend', ()=>{ isComposing=false; scheduleSave(); updateCharCount(cc, ta.value); });
+
+  ta.addEventListener('input', ()=>{
+    if(ta.value.length>MAX_BOX_CHARS){ ta.value = ta.value.slice(0,MAX_BOX_CHARS); alert('1ボックスの最大文字数を超えたため切り捨てました'); }
+    box.content = ta.value; box.updatedAt = new Date().toISOString(); autoHeight(ta); updateCharCount(cc, ta.value); pushUndo(); scheduleSave();
+  });
+
+  // delete button
+  const del = document.createElement('button'); del.className='small btn'; del.textContent='削除'; del.addEventListener('click',(e)=>{ e.stopPropagation(); confirmAction('このメモを削除しますか？', ()=>{ removeBox(tabId, box.id); }); });
+
+  wrapper.appendChild(ta);
+  wrapper.appendChild(cc);
+  el.appendChild(wrapper);
+  el.appendChild(del);
+
+  // drag events
+  el.addEventListener('dragstart', (e)=>{ e.dataTransfer.setData('text/box-id', box.id + '||' + tabId); el.style.opacity='0.4'; });
+  el.addEventListener('dragend', ()=>{ el.style.opacity='1'; });
+  el.addEventListener('dragover', (e)=>{ e.preventDefault(); });
+  el.addEventListener('drop', (e)=>{
+    e.preventDefault(); const data = e.dataTransfer.getData('text/box-id'); if(!data) return;
+    const [srcBoxId, srcTabId] = data.split('||'); reorderBoxes(srcTabId, srcBoxId, tabId, box.id);
+  });
+
+  return el;
+}
+
+function updateCharCount(ccEl, text){
+  const len = text.length;
+  ccEl.textContent = `${len} / ${MAX_BOX_CHARS}`;
+  if(len > MAX_BOX_CHARS*0.9){ ccEl.style.color = '#b45309'; } else { ccEl.style.color = ''; }
+}
+
+function renderBoxesForTab(tab){
+  clearElement(content);
+  const boxes = Array.isArray(tab.boxes)?tab.boxes.slice().sort((a,b)=>(a.order||0)-(b.order||0)):[];
+  boxes.forEach(b=>{ const el = renderBox(b, tab.id); content.appendChild(el); });
+}
+
+function renderAll(){
+  renderTabs();
+  const sel = state.tabs.find(t=>t.selected) || state.tabs[0];
+  if(!sel && state.tabs.length===0){
+    const t = {id:uuid(),name:'タブ1',order:0,boxes:[]}; state.tabs.push(t); pushUndo(); forceSave(); renderAll(); return; }
+  state.tabs.forEach(t=> t.selected = (t.id=== (sel?sel.id:state.tabs[0].id)));
+  Array.from(tabbar.querySelectorAll('.tab')).forEach(btn=>{ const id=btn.dataset.id; const t = state.tabs.find(x=>x.id===id); if(t) btn.setAttribute('aria-selected', t.selected?'true':'false'); });
+  if(sel) renderBoxesForTab(sel);
+  updateSizeInfo();
+}
+
+/* --- Mutations --- */
+function addTab(name){ pushUndo(); const id = uuid(); const order = state.tabs.length? Math.max(...state.tabs.map(t=>t.order||0))+1:0; state.tabs.push({id,name:name||'新しいタブ',order,boxes:[]}); selectTab(id); renderAll(); scheduleSave(); }
+function removeTab(tabId){ const idx = state.tabs.findIndex(t=>t.id===tabId); if(idx<0) return; pushUndo(); state.tabs.splice(idx,1); renderAll(); scheduleSave(); }
+function selectTab(tabId){ state.tabs.forEach(t=> t.selected = (t.id===tabId)); renderAll(); }
+function reorderTabs(srcId, targetId){ pushUndo(); const srcIdx = state.tabs.findIndex(t=>t.id===srcId); const targetIdx = state.tabs.findIndex(t=>t.id===targetId); if(srcIdx<0||targetIdx<0) return; const [item] = state.tabs.splice(srcIdx,1); state.tabs.splice(targetIdx,0,item); state.tabs.forEach((t,i)=> t.order=i); renderAll(); scheduleSave(); }
+
+function addBoxToTab(tabId, contentText=''){
+  const tab = state.tabs.find(t=>t.id===tabId) || state.tabs[0]; if(!tab) return;
+  pushUndo(); const id = uuid(); const order = 0; const box = {id,content:contentText,order,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()};
+  tab.boxes = tab.boxes.map(b=>{b.order = (b.order||0)+1; return b});
+  tab.boxes.unshift(box);
+  renderAll(); scheduleSave();
+  setTimeout(()=>{ const el = content.querySelector('.box'); if(el) el.querySelector('.ta').focus(); },80);
+}
+
+function removeBox(tabId, boxId){ const tab = state.tabs.find(t=>t.id===tabId); if(!tab) return; const idx = tab.boxes.findIndex(b=>b.id===boxId); if(idx<0) return; pushUndo(); tab.boxes.splice(idx,1); renderAll(); scheduleSave(); }
+
+function reorderBoxes(srcTabId, srcBoxId, tgtTabId, tgtBoxId){ pushUndo(); const srcTab = state.tabs.find(t=>t.id===srcTabId); const tgtTab = state.tabs.find(t=>t.id===tgtTabId); if(!srcTab || !tgtTab) return; const sIdx = srcTab.boxes.findIndex(b=>b.id===srcBoxId); const tIdx = tgtTab.boxes.findIndex(b=>b.id===tgtBoxId); if(sIdx<0||tIdx<0) return; const [item] = srcTab.boxes.splice(sIdx,1); tgtTab.boxes.splice(tIdx,0,item); state.tabs.forEach(t=> t.boxes && t.boxes.forEach((b,i)=> b.order=i)); renderAll(); scheduleSave(); }
+
+/* --- Helpers --- */
+function autoHeight(ta){ ta.style.height='auto'; ta.style.height = Math.max(48, ta.scrollHeight) + 'px'; }
+
+function confirmAction(message, onOk){ modalContent.innerHTML = `<p>${message}</p><div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px"><button id='modalNo' class='btn small'>キャンセル</button><button id='modalYes' class='btn small'>OK</button></div>`; confirmModal.classList.remove('hidden');
+  document.getElementById('modalYes').addEventListener('click', ()=>{ confirmModal.classList.add('hidden'); onOk && onOk(); });
+  document.getElementById('modalNo').addEventListener('click', ()=>{ confirmModal.classList.add('hidden'); });
+}
+
+/* --- Event wiring --- */
+addTabBtn.addEventListener('click', ()=>{ const name = prompt('タブ名を入力してください','新しいタブ'); if(name!==null) addTab(name); });
+addBoxFab.addEventListener('click', ()=>{ const sel = state.tabs.find(t=>t.selected) || state.tabs[0]; if(!sel) { addTab('タブ1'); return; } addBoxToTab(sel.id); });
+
+undoBtn.addEventListener('click', ()=> doUndo());
+exportBtn.addEventListener('click', ()=> exportJSON());
+importBtn.addEventListener('click', ()=> fileInput.click());
+fileInput.addEventListener('change', (e)=>{ if(!e.target.files || !e.target.files[0]) return; const file = e.target.files[0]; const mode = confirm('マージ(OK) / 上書き(Cancel) ?\nOK:マージ  Cancel:上書き') ? 'merge' : 'overwrite'; importJSONFile(file, mode); e.target.value=''; });
+
+// keyboard shortcuts
+document.addEventListener('keydown', (e)=>{ if((e.ctrlKey||e.metaKey) && e.key === 'z'){ e.preventDefault(); doUndo(); } });
+
+// composition handling set globally
+window.addEventListener('compositionstart', ()=> isComposing = true);
+window.addEventListener('compositionend', ()=> { isComposing = false; scheduleSave(); });
+
+// initial load
+(function init(){
+  const ok = loadFromStorage();
+  if(!ok){
+    state = {meta:{version:1}, tabs:[{id:uuid(),name:'メモ',order:0,boxes:[{id:uuid(),content:'ようこそ — ここにメモを入力してください。',order:0,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()}]}]};
+    saveToStorage();
+  }
+  pushUndo(); renderAll();
+})();
+
+// expose debug
+window.__choimemo = {state, saveToStorage, addTab, addBoxToTab, exportJSON};
+
+</script>
+</body>
+</html>
