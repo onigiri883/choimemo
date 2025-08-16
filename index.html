@@ -3,182 +3,245 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover" />
-<title>スマホメモ（タブ名インライン編集対応）</title>
+<title>スマホメモ（ドラッグ並べ替え + 容量表示）</title>
 <style>
-  :root{
-    --bg:#f0f7ff; --card:#fff; --chip:#f6f9ff; --accent:#4b9cff; --muted:#6e6e6e;
-    --icon-size:18px;
-    font-family: -apple-system,BlinkMacSystemFont,"Hiragino Kaku Gothic ProN",Meiryo,Segoe UI, Roboto, "Noto Sans JP", sans-serif;
-  }
-  html,body{height:100%;margin:0;background:var(--bg);} 
-  .phone{max-width:420px;margin:18px auto;padding:18px;background:var(--card);border-radius:22px;box-shadow:0 6px 18px rgba(0,0,0,0.06);min-height:80vh;display:flex;flex-direction:column}
-  header{display:flex;align-items:center;gap:8px;padding-bottom:10px}
-  .chip-row{display:flex;gap:8px;overflow:auto;padding:6px 4px; -webkit-overflow-scrolling:touch}
-  .chip{display:inline-flex;align-items:center;gap:8px;padding:8px 10px;border-radius:16px;background:var(--chip);white-space:nowrap;font-size:14px}
-  .chip.selected{background:var(--accent);color:#fff}
-  .chip .label{padding:0 4px}
-  .chip input.tab-edit{font-size:14px;padding:4px 8px;border-radius:8px;border:1px solid rgba(0,0,0,0.12);}
-  .chip button{background:transparent;border:0;padding:6px;border-radius:8px;cursor:pointer;display:inline-flex;align-items:center}
-  .add-tag{background:transparent;color:var(--muted);border:1px dashed rgba(0,0,0,0.04);padding:6px 10px;border-radius:12px}
-  .main{flex:1;overflow:auto;padding:6px 2px;-webkit-overflow-scrolling:touch}
-  .box-card{margin:12px 6px 0 6px;border-radius:8px}
-  .toolbar{display:flex;align-items:center;gap:8px;padding:8px;background:rgba(0,0,0,0.03);border-radius:12px}
-  .icon-btn{border:0;background:#fff;padding:6px;border-radius:8px;box-shadow:0 1px 4px rgba(0,0,0,0.04);font-size:14px;cursor:pointer;display:inline-flex;align-items:center;gap:8px}
-  .small-icon{width:36px;height:36px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;padding:0}
-  .toolbar .char-count{margin-left:auto;padding:6px 10px;border-radius:999px;background:transparent;color:var(--muted);font-size:13px}
-  textarea{width:100%;border:2px solid #000000;box-sizing:border-box;border-radius:6px;padding:10px 12px;margin-top:8px;font-size:15px;line-height:1.6;resize:none;overflow:hidden;background:#fff;min-height:48px}
-  .top-actions{display:flex;align-items:center;gap:8px;margin-left:auto}
-  .meta{font-size:12px;color:var(--muted);padding-left:6px}
-  @media (max-width:420px){.phone{margin:8px;border-radius:18px;padding:12px}textarea{min-height:64px}}
-  .svg-icon{width:var(--icon-size);height:var(--icon-size);display:inline-block;vertical-align:middle}
+:root{--bg:#f0f7ff;--card:#fff;--chip:#f6f9ff;--accent:#4b9cff;--muted:#6e6e6e;--icon-size:18px}
+html,body{height:100%;margin:0;background:var(--bg);font-family:-apple-system,BlinkMacSystemFont,"Hiragino Kaku Gothic ProN",Meiryo,Segoe UI,Roboto,"Noto Sans JP",sans-serif}
+.container{max-width:720px;margin:12px auto;padding:12px}
+.phone{max-width:420px;margin:12px auto;padding:16px;background:var(--card);border-radius:18px;box-shadow:0 6px 18px rgba(0,0,0,0.06);min-height:70vh;display:flex;flex-direction:column}
+.header{display:flex;align-items:center;gap:12px}
+.title{font-weight:700;font-size:18px}
+.storage{margin-left:auto;text-align:right}
+.storage .bar{width:120px;height:8px;background:#eee;border-radius:8px;overflow:hidden;margin-top:6px}
+.storage .fill{height:100%;background:linear-gradient(90deg,var(--accent),#6ae);width:0%}
+.chip-row{display:flex;gap:8px;overflow:auto;padding:8px 4px;margin-top:12px;-webkit-overflow-scrolling:touch}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:8px 10px;border-radius:14px;background:var(--chip);white-space:nowrap;font-size:14px;cursor:grab}
+.chip.dragging{opacity:0.4}
+.chip.selected{background:var(--accent);color:#fff}
+.chip .label{padding:0 4px}
+.chip .btn{background:transparent;border:0;padding:6px;border-radius:8px;cursor:pointer}
+.add-tag{background:transparent;color:var(--muted);border:1px dashed rgba(0,0,0,0.04);padding:6px 8px;border-radius:12px}
+.main{flex:1;overflow:auto;padding:6px 2px;margin-top:10px}
+.box-card{margin:12px 6px 0 6px;border-radius:8px;border:1px solid rgba(0,0,0,0.04);background:#fff}
+.box-card.dragging{opacity:0.5}
+.toolbar{display:flex;align-items:center;gap:8px;padding:8px;border-bottom:1px solid rgba(0,0,0,0.03);border-radius:8px 8px 0 0}
+.icon-btn{border:0;background:transparent;padding:6px;border-radius:8px;cursor:pointer;font-size:18px}
+.small-plus{width:40px;height:36px;border-radius:10px;display:inline-flex;align-items:center;justify-content:center;padding:0}
+.char-count{margin-left:auto;color:var(--muted);font-size:13px;padding-right:6px}
+textarea{width:100%;box-sizing:border-box;border:0;padding:12px;font-size:15px;line-height:1.6;resize:none;overflow:hidden;border-radius:0;border-bottom-left-radius:8px;border-bottom-right-radius:8px;min-height:64px}
+.hint{font-size:12px;color:var(--muted);margin-top:6px}
+.placeholder{height:48px;border:2px dashed rgba(0,0,0,0.06);border-radius:8px;margin:8px 6px}
+.footer{font-size:12px;color:var(--muted);margin-top:10px}
 </style>
 </head>
 <body>
-  <div class="phone" role="application" aria-label="メモアプリ">
-    <header>
-      <div style="font-weight:700;font-size:18px">メモ</div>
-      <div class="top-actions">
-        <div class="meta" id="savedMeta">自動保存: —</div>
+<div class="container">
+  <div class="phone" id="app">
+    <div class="header">
+      <div class="title">メモ</div>
+      <div class="storage" id="storageInfo">
+        <div id="storageText">容量: —</div>
+        <div class="bar"><div class="fill" id="storageFill"></div></div>
       </div>
-    </header>
+    </div>
 
     <div class="chip-row" id="tagBar" aria-label="タブ一覧"></div>
 
     <div class="main" id="mainArea"></div>
 
+    <div class="hint">ヒント: タブやボックスを長押し/ドラッグして並べ替えできます。</div>
+    <div class="footer">※データは端末のローカルに自動保存されます。</div>
   </div>
+</div>
 
 <script>
 (function(){
-  const STORAGE_KEY = 'mobile_memo_app_tab_inline_edit_v1';
-  const saveMetaEl = document.getElementById('savedMeta');
-  let state = null;
-  const debounce = (fn, ms=700)=>{ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms); }; };
-  const uid = (n=8)=>Math.random().toString(36).slice(2,2+n);
-  const nowStr = ()=>new Date().toLocaleString();
-
-  function defaultState(){ return { tabs: [ { id: uid(), name: 'ノート', boxes: [ {id: uid(), content: ''} ] } ], activeTabId: null }; }
-
-  function load(){ try{ const raw = localStorage.getItem(STORAGE_KEY); if(!raw) { state = defaultState(); state.activeTabId = state.tabs[0].id; return; } state = JSON.parse(raw); if(!state || !state.tabs || state.tabs.length===0) state = defaultState(); if(!state.activeTabId) state.activeTabId = state.tabs[0].id;}catch(e){ console.error('load error', e); state = defaultState(); } }
-
-  function save(){ try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); saveMetaEl.textContent = '自動保存: ' + nowStr(); }catch(e){ console.error('save error', e); } }
-  const saveDebounced = debounce(()=>save());
-
+  // シンプルなモバイル向けメモ（ドラッグ並べ替え + 容量表示）
+  const STORAGE_KEY = 'mobile_memo_app_drag_storage_v1';
+  const DEFAULT_QUOTA_FALLBACK = 5 * 1024 * 1024; // 5MB
   const tagBar = document.getElementById('tagBar');
   const mainArea = document.getElementById('mainArea');
+  const storageText = document.getElementById('storageText');
+  const storageFill = document.getElementById('storageFill');
 
-  // emoji icons
-  function iconCopy(){ return '📋'; }
-  function iconTrash(){ return '🗑️'; }
-  function iconX(){ return '✖️'; }
-  function iconPlus(){ return '➕'; }
-  function iconClear(){ return '🧽'; }
-  function iconEraser(){ return '🧽'; }
-  function iconEdit(){ return '✏️'; }
+  let state = null;
+  const uid = (n=8)=>Math.random().toString(36).slice(2,2+n);
+  const debounce = (fn, ms=500)=>{ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms); }; };
 
-  function adjustHeight(el){ if(!el) return; el.style.height='auto'; const extra = 12; el.style.height = (el.scrollHeight + extra) + 'px'; }
+  function defaultState(){ return { tabs:[{id:uid(), name:'ノート', boxes:[{id:uid(), content:''}]}], activeTabId:null } }
 
-  function startInlineEdit(chipEl, tab){
-    const label = chipEl.querySelector('.label');
-    // create input
-    const input = document.createElement('input');
-    input.type = 'text';
-    input.className = 'tab-edit';
-    input.value = tab.name;
-    chipEl.insertBefore(input, label);
-    chipEl.removeChild(label);
-    input.focus();
-    // move cursor to end
-    input.setSelectionRange(input.value.length, input.value.length);
-    const commit = ()=>{
-      const v = input.value.trim() || 'ノート';
-      tab.name = v;
-      saveDebounced();
-      // restore label
-      const newLabel = document.createElement('span'); newLabel.className='label'; newLabel.textContent = tab.name;
-      chipEl.insertBefore(newLabel, input);
-      chipEl.removeChild(input);
-      renderTags();
-    };
-    input.addEventListener('keydown', (e)=>{ if(e.key === 'Enter'){ commit(); } else if(e.key === 'Escape'){ renderTags(); } });
-    input.addEventListener('blur', ()=>{ commit(); });
+  function load(){ try{ const raw = localStorage.getItem(STORAGE_KEY); if(!raw){ state = defaultState(); state.activeTabId = state.tabs[0].id; return; } state = JSON.parse(raw); if(!state || !state.tabs || state.tabs.length===0) state = defaultState(); if(!state.activeTabId) state.activeTabId = state.tabs[0].id; }catch(e){ console.error(e); state = defaultState(); } }
+
+  function save(){ try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); updateStorageInfo(); }catch(e){ console.error('save error', e); } }
+  const saveDebounced = debounce(()=>save(), 700);
+
+  // 容量計算（state の JSON bytes）
+  function stateBytes(){ try{ return new Blob([JSON.stringify(state)]).size; }catch(e){ return new TextEncoder().encode(JSON.stringify(state)).length; } }
+
+  async function getQuota(){ // navigator.storage.estimate があれば使う
+    try{
+      if(navigator.storage && navigator.storage.estimate){
+        const est = await navigator.storage.estimate();
+        if(est.quota) return est.quota;
+      }
+    }catch(e){ /* ignore */ }
+    return DEFAULT_QUOTA_FALLBACK;
   }
 
-  function renderTags(){
-    tagBar.innerHTML = '';
-    state.tabs.forEach(tab=>{
-      const chip = document.createElement('div'); chip.className = 'chip' + (tab.id===state.activeTabId?' selected':''); chip.dataset.id = tab.id;
-      const label = document.createElement('span'); label.className='label'; label.textContent = tab.name; chip.appendChild(label);
+  async function updateStorageInfo(){
+    const used = stateBytes();
+    const quota = await getQuota();
+    const percent = Math.min(100, Math.round((used/quota)*100));
+    storageText.textContent = `容量: ${used} bytes / ${quota} bytes (${percent}%)`;
+    storageFill.style.width = percent + '%';
+  }
 
-      chip.addEventListener('click', ()=>{ if(state.activeTabId === tab.id) return; state.activeTabId = tab.id; saveDebounced(); render(); });
+  // --- render ---
+  function createTabElement(tab){
+    const el = document.createElement('div');
+    el.className = 'chip';
+    el.draggable = true;
+    el.dataset.id = tab.id;
+    const label = document.createElement('span'); label.className='label'; label.textContent = tab.name; el.appendChild(label);
 
-      // copy-all
-      const copyAllBtn = document.createElement('button'); copyAllBtn.className='icon-btn'; copyAllBtn.title='タブ内をまとめてコピー'; copyAllBtn.innerHTML = iconCopy();
-      copyAllBtn.addEventListener('click', (ev)=>{ ev.stopPropagation(); copyAllBoxes(tab.id); }); chip.appendChild(copyAllBtn);
+    // copy-all
+    const copyBtn = document.createElement('button'); copyBtn.className='btn icon-btn'; copyBtn.title='📋 全部コピー'; copyBtn.innerText = '📋';
+    copyBtn.addEventListener('click', (ev)=>{ ev.stopPropagation(); copyAll(tab.id); }); el.appendChild(copyBtn);
 
-      // edit inline
-      const editBtn = document.createElement('button'); editBtn.className='icon-btn'; editBtn.title='タブ名を編集'; editBtn.innerHTML = iconEdit();
-      editBtn.addEventListener('click', (ev)=>{ ev.stopPropagation(); startInlineEdit(chip, tab); }); chip.appendChild(editBtn);
+    // inline edit on long press or edit icon
+    const editBtn = document.createElement('button'); editBtn.className='btn icon-btn'; editBtn.title='✏️'; editBtn.innerText = '✏️';
+    editBtn.addEventListener('click',(ev)=>{ ev.stopPropagation(); startInlineEdit(el, tab); }); el.appendChild(editBtn);
 
-      // delete as X (no confirm)
-      const delBtn = document.createElement('button'); delBtn.className='icon-btn'; delBtn.title='タブを削除'; delBtn.innerHTML = iconX();
-      delBtn.addEventListener('click',(ev)=>{ ev.stopPropagation(); state.tabs = state.tabs.filter(t=>t.id!==tab.id); if(state.tabs.length===0) state = defaultState(); if(state.activeTabId === tab.id) state.activeTabId = state.tabs[0].id; saveDebounced(); render(); }); chip.appendChild(delBtn);
+    // delete (X)
+    const delBtn = document.createElement('button'); delBtn.className='btn icon-btn'; delBtn.title='✖️'; delBtn.innerText = '✖️';
+    delBtn.addEventListener('click',(ev)=>{ ev.stopPropagation(); // no confirm
+      state.tabs = state.tabs.filter(t=>t.id!==tab.id);
+      if(state.tabs.length===0) state = defaultState();
+      if(state.activeTabId===tab.id) state.activeTabId = state.tabs[0].id;
+      saveDebounced(); render();
+    }); el.appendChild(delBtn);
 
-      tagBar.appendChild(chip);
+    if(tab.id === state.activeTabId) el.classList.add('selected');
+
+    // Drag events for tabs
+    el.addEventListener('dragstart', (e)=>{ e.dataTransfer.setData('text/plain', JSON.stringify({type:'tab', id:tab.id})); el.classList.add('dragging'); });
+    el.addEventListener('dragend', ()=>{ el.classList.remove('dragging'); });
+
+    // allow drop on chip to insert before
+    el.addEventListener('dragover', (e)=>{ e.preventDefault(); const dragging = document.querySelector('.chip.dragging'); if(!dragging) return; el.style.outline = '2px dashed rgba(0,0,0,0.08)'; });
+    el.addEventListener('dragleave', (e)=>{ el.style.outline=''; });
+    el.addEventListener('drop', (e)=>{
+      e.preventDefault(); el.style.outline=''; try{ const d = JSON.parse(e.dataTransfer.getData('text/plain')); if(d.type==='tab'){ reorderTab(d.id, tab.id); } }catch(err){}
     });
 
-    const add = document.createElement('button'); add.className='chip add-tag'; add.innerHTML = iconPlus() + ' タブ追加';
-    add.addEventListener('click', ()=>{ const name = prompt('新しいタブ名を入力してください','新しいノート'); if(name===null) return; const t = {id: uid(), name: name.trim()||'ノート', boxes: [ {id: uid(), content: ''} ]}; state.tabs.push(t); state.activeTabId = t.id; saveDebounced(); render(); });
-    tagBar.appendChild(add);
+    el.addEventListener('click', ()=>{ if(state.activeTabId !== tab.id){ state.activeTabId = tab.id; saveDebounced(); render(); } });
+
+    return el;
   }
 
-  async function copyAllBoxes(tabId){ const tab = state.tabs.find(t=>t.id===tabId); if(!tab) return; const text = tab.boxes.map(b=>b.content||'').join('\n\n'); try{ await navigator.clipboard.writeText(text); }catch(e){ console.error('copy failed', e); } }
+  function reorderTab(dragId, dropBeforeId){
+    const from = state.tabs.findIndex(t=>t.id===dragId);
+    const to = state.tabs.findIndex(t=>t.id===dropBeforeId);
+    if(from<0||to<0) return;
+    const item = state.tabs.splice(from,1)[0];
+    const insertIndex = (from < to) ? to+0 : to; // adjust
+    state.tabs.splice(insertIndex,0,item);
+    saveDebounced(); render();
+  }
 
-  function renderMain(){
-    mainArea.innerHTML = ''; const tab = state.tabs.find(t=>t.id===state.activeTabId); if(!tab) return; tab.boxes.forEach((box, idx)=>{
-      const card = document.createElement('div'); card.className = 'box-card';
-      const toolbar = document.createElement('div'); toolbar.className = 'toolbar';
+  function createBoxElement(box, idx, tab){
+    const card = document.createElement('div'); card.className='box-card'; card.draggable = true; card.dataset.id = box.id;
+    // toolbar
+    const toolbar = document.createElement('div'); toolbar.className='toolbar';
+    const addBtn = document.createElement('button'); addBtn.className='icon-btn small-plus'; addBtn.title='➕'; addBtn.innerText='➕'; addBtn.addEventListener('click', ()=>{ const nb={id:uid(),content:''}; tab.boxes.splice(idx+1,0,nb); saveDebounced(); render(); focusBox(nb.id); }); toolbar.appendChild(addBtn);
 
-      // add below: small plus icon only
-      const addBelow = document.createElement('button'); addBelow.className='icon-btn small-icon'; addBelow.title='下に追加'; addBelow.innerHTML = iconPlus();
-      addBelow.addEventListener('click', ()=>{ const nb = {id: uid(), content: ''}; tab.boxes.splice(idx+1,0,nb); saveDebounced(); render(); focusBox(nb.id); });
-      toolbar.appendChild(addBelow);
+    const copyBtn = document.createElement('button'); copyBtn.className='icon-btn'; copyBtn.title='📋'; copyBtn.innerText='📋'; copyBtn.addEventListener('click', async ()=>{ try{ await navigator.clipboard.writeText(box.content||''); }catch(e){} }); toolbar.appendChild(copyBtn);
 
-      // copy single box
-      const copyBtn = document.createElement('button'); copyBtn.className='icon-btn'; copyBtn.title='このボックスをコピー'; copyBtn.innerHTML = iconCopy();
-      copyBtn.addEventListener('click', async ()=>{ try{ await navigator.clipboard.writeText(box.content||''); copyBtn.innerHTML = iconCopy() + ' 完了'; setTimeout(()=>{ copyBtn.innerHTML = iconCopy(); },700); }catch(e){ console.error(e); } });
-      toolbar.appendChild(copyBtn);
+    const clearBtn = document.createElement('button'); clearBtn.className='icon-btn'; clearBtn.title='🧽'; clearBtn.innerText='🧽'; clearBtn.addEventListener('click', ()=>{ box.content=''; saveDebounced(); render(); }); toolbar.appendChild(clearBtn);
 
-      // clear content
-      const clearBtn = document.createElement('button'); clearBtn.className='icon-btn'; clearBtn.title='このボックスの文字をクリア'; clearBtn.innerHTML = iconEraser();
-      clearBtn.addEventListener('click', ()=>{ box.content = ''; saveDebounced(); render(); });
-      toolbar.appendChild(clearBtn);
+    const delBtn = document.createElement('button'); delBtn.className='icon-btn'; delBtn.title='🗑️'; delBtn.innerText='🗑️'; delBtn.addEventListener('click', ()=>{ tab.boxes.splice(idx,1); if(tab.boxes.length===0) tab.boxes.push({id:uid(),content:''}); saveDebounced(); render(); }); toolbar.appendChild(delBtn);
 
-      // delete box (no confirm)
-      const delBtn = document.createElement('button'); delBtn.className='icon-btn'; delBtn.title='このボックスを削除'; delBtn.innerHTML = iconTrash();
-      delBtn.addEventListener('click', ()=>{ tab.boxes.splice(idx,1); if(tab.boxes.length===0) tab.boxes.push({id: uid(), content: ''}); saveDebounced(); render(); });
-      toolbar.appendChild(delBtn);
+    const charCount = document.createElement('div'); charCount.className='char-count'; charCount.textContent = `${(box.content||'').length}文字`; toolbar.appendChild(charCount);
 
-      const charCount = document.createElement('div'); charCount.className = 'char-count'; charCount.textContent = `${(box.content||'').length}文字`;
-      toolbar.appendChild(charCount);
+    const ta = document.createElement('textarea'); ta.value = box.content||''; ta.placeholder='ここにメモを入力'; ta.addEventListener('input', (e)=>{ box.content = e.target.value; charCount.textContent = `${e.target.value.length}文字`; adjustHeight(ta); saveDebounced(); });
 
-      const ta = document.createElement('textarea'); ta.value = box.content || ''; ta.placeholder = 'ここにメモを入力'; ta.style.overflow='hidden'; ta.style.resize='none';
-      ta.addEventListener('input', (e)=>{ box.content = e.target.value; charCount.textContent = `${e.target.value.length}文字`; adjustHeight(e.target); saveDebounced(); });
+    card.appendChild(toolbar); card.appendChild(ta);
 
-      card.appendChild(toolbar); card.appendChild(ta); mainArea.appendChild(card);
-      setTimeout(()=>{ adjustHeight(ta); },0);
-    }); }
+    // drag events for boxes
+    card.addEventListener('dragstart', (e)=>{ e.dataTransfer.setData('text/plain', JSON.stringify({type:'box', id:box.id, tabId:tab.id})); card.classList.add('dragging'); });
+    card.addEventListener('dragend', ()=>{ card.classList.remove('dragging'); });
 
-  function focusBox(id){ setTimeout(()=>{ const tab = state.tabs.find(t=>t.id===state.activeTabId); if(!tab) return; const idx = tab.boxes.findIndex(b=>b.id===id); if(idx<0) return; const textarea = mainArea.querySelectorAll('textarea')[idx]; if(textarea){ textarea.focus(); const v = textarea.value; textarea.value=''; textarea.value=v; adjustHeight(textarea); } },200); }
+    // allow drop before this card
+    card.addEventListener('dragover', (e)=>{ e.preventDefault(); card.style.outline='2px dashed rgba(0,0,0,0.06)'; });
+    card.addEventListener('dragleave', ()=>{ card.style.outline=''; });
+    card.addEventListener('drop', (e)=>{ e.preventDefault(); card.style.outline=''; try{ const d = JSON.parse(e.dataTransfer.getData('text/plain')); if(d.type==='box'){ reorderBox(d.tabId, d.id, tab.id, box.id); } }catch(er){} });
 
-  function render(){ renderTags(); renderMain(); }
-  function escapeHtml(s){ return String(s).replace(/[&<>"']/g, (m)=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+    // adjust height on creation
+    setTimeout(()=>adjustHeight(ta),0);
+    return card;
+  }
 
-  document.addEventListener('keydown', (e)=>{ if(e.key === 'n' && (e.ctrlKey || e.metaKey)){ e.preventDefault(); const name = prompt('新しいタブ名を入力してください','新しいノート'); if(name===null) return; const t = {id: uid(), name: name.trim()||'ノート', boxes: [ {id: uid(), content: ''} ]}; state.tabs.push(t); state.activeTabId = t.id; saveDebounced(); render(); } });
+  function reorderBox(fromTabId, dragBoxId, toTabId, dropBeforeBoxId){
+    const fromTab = state.tabs.find(t=>t.id===fromTabId);
+    const toTab = state.tabs.find(t=>t.id===toTabId);
+    if(!fromTab || !toTab) return;
+    const fromIdx = fromTab.boxes.findIndex(b=>b.id===dragBoxId);
+    const toIdx = toTab.boxes.findIndex(b=>b.id===dropBeforeBoxId);
+    if(fromIdx<0 || toIdx<0) return;
+    const item = fromTab.boxes.splice(fromIdx,1)[0];
+    // if moving within same tab and original index less than target index, adjust
+    let insertIndex = toIdx;
+    if(fromTabId === toTabId){ const orig = fromIdx; if(orig < toIdx) insertIndex = toIdx; }
+    toTab.boxes.splice(insertIndex,0,item);
+    saveDebounced(); render();
+  }
 
-  load(); if(!state.activeTabId) state.activeTabId = state.tabs[0].id; render(); saveMetaEl.textContent = '読み込み: ' + nowStr();
-  setInterval(()=>save(), 30000);
-  document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='hidden') save(); });
+  function adjustHeight(el){ if(!el) return; el.style.height='auto'; el.style.height = (el.scrollHeight + 12) + 'px'; }
+
+  function copyAll(tabId){ const tab = state.tabs.find(t=>t.id===tabId); if(!tab) return; const text = tab.boxes.map(b=>b.content||'').join('\n\n'); navigator.clipboard.writeText(text).catch(()=>{}); }
+
+  function startInlineEdit(chipEl, tab){ const label = chipEl.querySelector('.label'); const input = document.createElement('input'); input.type='text'; input.value=tab.name; input.style.padding='6px 8px'; input.style.fontSize='14px'; input.style.borderRadius='8px'; input.style.border='1px solid rgba(0,0,0,0.12)'; chipEl.insertBefore(input, label); chipEl.removeChild(label); input.focus(); input.setSelectionRange(input.value.length,input.value.length);
+    const commit = ()=>{ tab.name = input.value.trim()||'ノート'; saveDebounced(); render(); };
+    input.addEventListener('keydown', (e)=>{ if(e.key==='Enter') commit(); else if(e.key==='Escape') render(); });
+    input.addEventListener('blur', commit);
+  }
+
+  function render(){
+    // tabs
+    tagBar.innerHTML='';
+    state.tabs.forEach(tab=>{
+      const el = createTabElement(tab);
+      tagBar.appendChild(el);
+    });
+    // add tab button
+    const add = document.createElement('button'); add.className='chip add-tag'; add.innerText='➕ タブ追加'; add.addEventListener('click', ()=>{ const name = prompt('新しいタブ名を入力してください','新しいノート'); if(name===null) return; const t={id:uid(),name:name.trim()||'ノート',boxes:[{id:uid(),content:''}]}; state.tabs.push(t); state.activeTabId = t.id; saveDebounced(); render(); }); tagBar.appendChild(add);
+
+    // main area boxes
+    mainArea.innerHTML='';
+    const tab = state.tabs.find(t=>t.id===state.activeTabId);
+    if(!tab) return;
+    tab.boxes.forEach((box, idx)=>{ const card = createBoxElement(box, idx, tab); mainArea.appendChild(card); });
+
+    updateStorageInfo();
+  }
+
+  function focusBox(id){ setTimeout(()=>{ const nodes = mainArea.querySelectorAll('textarea'); for(const n of nodes){ const card = n.closest('.box-card'); if(card && card.dataset.id===id){ n.focus(); const v=n.value; n.value=''; n.value=v; adjustHeight(n); break; } } },200); }
+
+  // allow dropping tabs into empty space (append)
+  tagBar.addEventListener('dragover', (e)=>{ e.preventDefault(); });
+  tagBar.addEventListener('drop', (e)=>{ e.preventDefault(); try{ const d = JSON.parse(e.dataTransfer.getData('text/plain')); if(d.type==='tab'){ // append at end
+      const idx = state.tabs.findIndex(t=>t.id===d.id); if(idx>=0){ const item = state.tabs.splice(idx,1)[0]; state.tabs.push(item); saveDebounced(); render(); }
+    } }catch(_){} });
+
+  // allow dropping boxes into empty area (append to tab)
+  mainArea.addEventListener('dragover', (e)=>{ e.preventDefault(); });
+  mainArea.addEventListener('drop', (e)=>{ e.preventDefault(); try{ const d = JSON.parse(e.dataTransfer.getData('text/plain')); if(d.type==='box'){ const fromTab = state.tabs.find(t=>t.id===d.tabId); const toTab = state.tabs.find(t=>t.id===state.activeTabId); if(!fromTab||!toTab) return; const fromIdx = fromTab.boxes.findIndex(b=>b.id===d.id); if(fromIdx<0) return; const item = fromTab.boxes.splice(fromIdx,1)[0]; toTab.boxes.push(item); saveDebounced(); render(); } }catch(_){} });
+
+  // initialize
+  load(); if(!state.activeTabId) state.activeTabId = state.tabs[0].id; render();
+
+  // storage info periodic update
+  setInterval(updateStorageInfo, 2000);
 
 })();
 </script>
