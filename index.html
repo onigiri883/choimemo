@@ -1,226 +1,302 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ja">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover" />
-<title>スマホメモ（5MB基準の容量表示）</title>
-<style>
-:root{--bg:#f0f7ff;--card:#fff;--chip:#f6f9ff;--accent:#4b9cff;--muted:#6e6e6e;--icon-size:18px}
-html,body{height:100%;margin:0;background:var(--bg);font-family:-apple-system,BlinkMacSystemFont,"Hiragino Kaku Gothic ProN",Meiryo,Segoe UI,Roboto,"Noto Sans JP",sans-serif}
-.container{max-width:720px;margin:12px auto;padding:12px}
-.phone{max-width:420px;margin:12px auto;padding:16px;background:var(--card);border-radius:18px;box-shadow:0 6px 18px rgba(0,0,0,0.06);min-height:70vh;display:flex;flex-direction:column}
-.header{display:flex;align-items:center;gap:12px}
-.title{font-weight:700;font-size:18px}
-.storage{margin-left:auto;text-align:right;font-size:13px;color:var(--muted)}
-.chip-row{display:flex;gap:8px;overflow:auto;padding:8px 4px;margin-top:12px;-webkit-overflow-scrolling:touch}
-.chip{display:inline-flex;align-items:center;gap:6px;padding:8px 10px;border-radius:14px;background:var(--chip);white-space:nowrap;font-size:14px;cursor:grab}
-.chip.dragging{opacity:0.4}
-.chip.selected{background:var(--accent);color:#fff}
-.chip .label{padding:0 4px}
-.chip .btn{background:transparent;border:0;padding:6px;border-radius:8px;cursor:pointer}
-.add-tag{background:transparent;color:var(--muted);border:1px dashed rgba(0,0,0,0.04);padding:6px 8px;border-radius:12px}
-.main{flex:1;overflow:auto;padding:6px 2px;margin-top:10px}
-.box-card{margin:12px 6px 0 6px;border-radius:8px;border:1px solid rgba(0,0,0,0.04);background:#fff}
-.box-card.dragging{opacity:0.5}
-.toolbar{display:flex;align-items:center;gap:8px;padding:8px;border-bottom:1px solid rgba(0,0,0,0.03);border-radius:8px 8px 0 0}
-.icon-btn{border:0;background:transparent;padding:6px;border-radius:8px;cursor:pointer;font-size:18px}
-.small-plus{width:40px;height:36px;border-radius:10px;display:inline-flex;align-items:center;justify-content:center;padding:0}
-.char-count{margin-left:auto;color:var(--muted);font-size:13px;padding-right:6px}
-textarea{width:100%;box-sizing:border-box;border:0;padding:12px;font-size:15px;line-height:1.6;resize:none;overflow:hidden;border-radius:0;border-bottom-left-radius:8px;border-bottom-right-radius:8px;min-height:64px}
-.hint{font-size:12px;color:var(--muted);margin-top:6px}
-.footer{font-size:12px;color:var(--muted);margin-top:10px}
-</style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>スマホ用ローカルメモ（単一HTML）</title>
+  <style>
+    :root{
+      --bg:#ffffff;
+      --panel:#f9fafb;       /* 明るいグレー */
+      --ink:#111827;         /* 黒 */
+      --ink-dim:#6b7280;     /* グレー */
+      --accent:#2563eb;      /* 青 */
+      --accent-2:#3b82f6;    /* 明るい青 */
+      --danger:#dc2626;      /* 赤 */
+      --ok:#16a34a;          /* 緑 */
+      --tab:#e5e7eb;         /* グレー */
+      --tab-active:#ffffff;  /* 白 */
+      --border:#d1d5db;      /* グレー */
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0; background:var(--bg); color:var(--ink); font-family: system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,"Apple Color Emoji","Segoe UI Emoji";
+    }
+    .app{height:100%; display:flex; flex-direction:column}
+    .tabs{
+      position:fixed; top:0; left:0; right:0; z-index:10; background:var(--panel);
+      padding:8px env(safe-area-inset-right) 8px env(safe-area-inset-left);
+      border-bottom:1px solid var(--border);
+    }
+    .tabbar{display:flex; gap:6px; overflow-x:auto; -webkit-overflow-scrolling:touch; scrollbar-width:none}
+    .tabbar::-webkit-scrollbar{display:none}
+    .tab{
+      flex:0 0 auto; max-width:60vw; padding:8px 12px; border-radius:10px; background:var(--tab); color:var(--ink);
+      border:1px solid var(--border); opacity:0.9; display:flex; align-items:center; gap:8px; font-size:14px;
+    }
+    .tab.active{background:var(--tab-active); border-color:var(--accent); box-shadow:0 0 0 1px var(--accent) inset}
+    .tab-title{white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+
+    .tab-actions{display:flex; gap:6px; margin-top:6px}
+    .btn{appearance:none; border:none; background:var(--tab); color:var(--ink); padding:10px 12px; border-radius:10px; font-size:14px; border:1px solid var(--border)}
+    .btn:active{transform:translateY(1px)}
+    .btn.primary{background:var(--accent-2); border-color:var(--accent); color:#fff}
+    .btn.danger{background:#fef2f2; border-color:var(--danger); color:var(--danger)}
+
+    .editor-wrap{flex:1 1 auto; display:flex}
+    .editor{
+      width:100%; resize:none; border:none; outline:none; background:transparent; color:var(--ink); font-size:16px; line-height:1.6; padding:16px;
+      padding-top: calc(84px + env(safe-area-inset-top));
+      padding-bottom: calc(78px + env(safe-area-inset-bottom));
+    }
+
+    .toolbar{
+      position:fixed; bottom:0; left:0; right:0; z-index:10; background:var(--panel);
+      padding:8px env(safe-area-inset-right) 8px env(safe-area-inset-left);
+      border-top:1px solid var(--border);
+    }
+    .tools{display:flex; gap:8px; align-items:center; overflow-x:auto}
+    .tools .grow{flex:1}
+    .metric{font-size:12px; color:var(--ink-dim)}
+
+    dialog{border:none; border-radius:12px; padding:0; background:var(--panel); color:var(--ink); width:min(92vw,480px)}
+    .dialog-body{padding:16px; display:flex; flex-direction:column; gap:12px}
+    .input{width:100%; background:#ffffff; border:1px solid var(--border); border-radius:8px; color:var(--ink); padding:12px; font-size:16px}
+
+    @media (min-width:768px){
+      .editor{font-size:16px}
+    }
+  </style>
 </head>
 <body>
-<div class="container">
-  <div class="phone" id="app">
-    <div class="header">
-      <div class="title">メモ</div>
-      <div class="storage" id="storageText">使用: — / 5.0 MB (—%)</div>
-    </div>
+  <div class="app" id="app">
+    <header class="tabs">
+      <div class="tabbar" id="tabbar" aria-label="メモタブ"></div>
+      <div class="tab-actions">
+        <button class="btn primary" id="addTabBtn">＋ タブ追加</button>
+        <button class="btn" id="renameTabBtn">名前変更</button>
+        <button class="btn danger" id="deleteTabBtn">タブ削除</button>
+      </div>
+    </header>
 
-    <div class="chip-row" id="tagBar" aria-label="タブ一覧"></div>
+    <main class="editor-wrap">
+      <textarea id="editor" class="editor" placeholder="ここにメモを書きます。すべて端末内（ローカルストレージ）に保存されます。"></textarea>
+    </main>
 
-    <div class="main" id="mainArea"></div>
-
-    <div class="hint">ヒント: タブやボックスを長押し/ドラッグして並べ替えできます。</div>
-    <div class="footer">※データは端末のローカルに自動保存されます（表示は5MB基準）。</div>
+    <footer class="toolbar">
+      <div class="tools">
+        <button class="btn" id="copyBtn">コピー</button>
+        <button class="btn" id="clearBtn">クリア</button>
+        <div class="grow"></div>
+        <div class="metric" id="countAll">全体: 0 文字</div>
+        <div class="metric" id="countSel" style="margin-left:8px">選択: 0 文字</div>
+      </div>
+    </footer>
   </div>
-</div>
 
-<script>
-(function(){
-  const STORAGE_KEY = 'mobile_memo_app_drag_storage_v1_5mb';
-  const FIXED_QUOTA = 5 * 1024 * 1024; // 5MB（表示基準）
-  const tagBar = document.getElementById('tagBar');
-  const mainArea = document.getElementById('mainArea');
-  const storageText = document.getElementById('storageText');
+  <dialog id="titleDialog">
+    <form method="dialog" class="dialog-body" id="titleForm">
+      <label for="titleInput">タブ名</label>
+      <input id="titleInput" class="input" type="text" inputmode="text" autocomplete="off" />
+      <div style="display:flex; gap:8px; justify-content:flex-end">
+        <button class="btn" value="cancel">キャンセル</button>
+        <button class="btn primary" value="ok">OK</button>
+      </div>
+    </form>
+  </dialog>
 
-  let state = null;
-  const uid = (n=8)=>Math.random().toString(36).slice(2,2+n);
-  const debounce = (fn, ms=500)=>{ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms); }; };
+  <script>
+  // JS部分はそのまま（デザインのみ変更）
+  ;(() => {
+    const LS_KEY = 'local-memo-tabs-v1';
+    let state = load() || createInitialState();
+    let saveTimer = null;
 
-  function defaultState(){ return { tabs:[{id:uid(), name:'ノート', boxes:[{id:uid(), content:''}]}], activeTabId:null }; }
+    const $ = (sel) => document.querySelector(sel);
+    const tabbar = $('#tabbar');
+    const editor = $('#editor');
+    const dTitle = $('#titleDialog');
+    const titleInput = $('#titleInput');
 
-  function load(){ try{ const raw = localStorage.getItem(STORAGE_KEY); if(!raw){ state = defaultState(); state.activeTabId = state.tabs[0].id; return; } state = JSON.parse(raw); if(!state || !state.tabs || state.tabs.length===0) state = defaultState(); if(!state.activeTabId) state.activeTabId = state.tabs[0].id; }catch(e){ console.error(e); state = defaultState(); } }
+    const btnAdd = $('#addTabBtn');
+    const btnRename = $('#renameTabBtn');
+    const btnDelete = $('#deleteTabBtn');
+    const btnCopy = $('#copyBtn');
+    const btnClear = $('#clearBtn');
 
-  function save(){ try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); updateStorageInfo(); }catch(e){ console.error('save error', e); } }
-  const saveDebounced = debounce(()=>save(), 700);
+    const $countAll = $('#countAll');
+    const $countSel = $('#countSel');
 
-  // バイト数を見やすく変換
-  function niceBytes(bytes){
-    if(bytes === 0) return '0 B';
-    const units = ['B','KB','MB','GB','TB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(1024));
-    return (bytes / Math.pow(1024, i)).toFixed(i<=1?0:2) + ' ' + units[i];
-  }
+    renderTabs();
+    openActiveTab();
+    updateCounts();
 
-  // state を JSON にしたバイト数（使用量）
-  function stateBytes(){
-    try{ return new Blob([JSON.stringify(state)]).size; }
-    catch(e){ return new TextEncoder().encode(JSON.stringify(state)).length; }
-  }
-
-  // 5MB基準で表示を更新
-  function updateStorageInfo(){
-    const used = stateBytes();
-    const quota = FIXED_QUOTA;
-    const percent = quota > 0 ? (used / quota * 100) : 0;
-    // 表示: 使用: 12.3 KB / 5.0 MB (0.24%)
-    const usedText = niceBytes(used);
-    const quotaText = (FIXED_QUOTA / 1024 / 1024).toFixed(1) + ' MB';
-    const pctText = (percent < 0.01) ? '<0.01' : percent.toFixed(2);
-    storageText.textContent = `使用: ${usedText} / ${quotaText} (${pctText}%)`;
-  }
-
-  // UI / 機能（タブ／ボックスの作成等） — 前と同様の実装
-  function createTabElement(tab){
-    const el = document.createElement('div');
-    el.className = 'chip';
-    el.draggable = true;
-    el.dataset.id = tab.id;
-    const label = document.createElement('span'); label.className='label'; label.textContent = tab.name; el.appendChild(label);
-
-    // copy-all
-    const copyBtn = document.createElement('button'); copyBtn.className='btn icon-btn'; copyBtn.title='📋 全部コピー'; copyBtn.innerText = '📋';
-    copyBtn.addEventListener('click', (ev)=>{ ev.stopPropagation(); copyAll(tab.id); }); el.appendChild(copyBtn);
-
-    // inline edit
-    const editBtn = document.createElement('button'); editBtn.className='btn icon-btn'; editBtn.title='✏️'; editBtn.innerText = '✏️';
-    editBtn.addEventListener('click',(ev)=>{ ev.stopPropagation(); startInlineEdit(el, tab); }); el.appendChild(editBtn);
-
-    // delete X (no confirm)
-    const delBtn = document.createElement('button'); delBtn.className='btn icon-btn'; delBtn.title='✖️'; delBtn.innerText = '✖️';
-    delBtn.addEventListener('click',(ev)=>{ ev.stopPropagation(); state.tabs = state.tabs.filter(t=>t.id!==tab.id); if(state.tabs.length===0) state = defaultState(); if(state.activeTabId===tab.id) state.activeTabId = state.tabs[0].id; saveDebounced(); render(); }); el.appendChild(delBtn);
-
-    if(tab.id === state.activeTabId) el.classList.add('selected');
-
-    // Drag events for tabs
-    el.addEventListener('dragstart', (e)=>{ e.dataTransfer.setData('text/plain', JSON.stringify({type:'tab', id:tab.id})); el.classList.add('dragging'); });
-    el.addEventListener('dragend', ()=>{ el.classList.remove('dragging'); });
-
-    el.addEventListener('dragover', (e)=>{ e.preventDefault(); el.style.outline = '2px dashed rgba(0,0,0,0.08)'; });
-    el.addEventListener('dragleave', ()=>{ el.style.outline=''; });
-    el.addEventListener('drop', (e)=>{ e.preventDefault(); el.style.outline=''; try{ const d = JSON.parse(e.dataTransfer.getData('text/plain')); if(d.type==='tab'){ reorderTab(d.id, tab.id); } }catch(err){} });
-
-    el.addEventListener('click', ()=>{ if(state.activeTabId !== tab.id){ state.activeTabId = tab.id; saveDebounced(); render(); } });
-
-    return el;
-  }
-
-  function reorderTab(dragId, dropBeforeId){
-    const from = state.tabs.findIndex(t=>t.id===dragId);
-    const to = state.tabs.findIndex(t=>t.id===dropBeforeId);
-    if(from<0||to<0) return;
-    const item = state.tabs.splice(from,1)[0];
-    const insertIndex = (from < to) ? to+0 : to;
-    state.tabs.splice(insertIndex,0,item);
-    saveDebounced(); render();
-  }
-
-  function createBoxElement(box, idx, tab){
-    const card = document.createElement('div'); card.className='box-card'; card.draggable = true; card.dataset.id = box.id;
-    const toolbar = document.createElement('div'); toolbar.className='toolbar';
-    const addBtn = document.createElement('button'); addBtn.className='icon-btn small-plus'; addBtn.title='➕'; addBtn.innerText='➕'; addBtn.addEventListener('click', ()=>{ const nb={id:uid(),content:''}; tab.boxes.splice(idx+1,0,nb); saveDebounced(); render(); focusBox(nb.id); }); toolbar.appendChild(addBtn);
-
-    const copyBtn = document.createElement('button'); copyBtn.className='icon-btn'; copyBtn.title='📋'; copyBtn.innerText='📋'; copyBtn.addEventListener('click', async ()=>{ try{ await navigator.clipboard.writeText(box.content||''); }catch(e){} }); toolbar.appendChild(copyBtn);
-
-    const clearBtn = document.createElement('button'); clearBtn.className='icon-btn'; clearBtn.title='🧽'; clearBtn.innerText='🧽'; clearBtn.addEventListener('click', ()=>{ box.content=''; saveDebounced(); render(); }); toolbar.appendChild(clearBtn);
-
-    const delBtn = document.createElement('button'); delBtn.className='icon-btn'; delBtn.title='🗑️'; delBtn.innerText='🗑️'; delBtn.addEventListener('click', ()=>{ tab.boxes.splice(idx,1); if(tab.boxes.length===0) tab.boxes.push({id:uid(),content:''}); saveDebounced(); render(); }); toolbar.appendChild(delBtn);
-
-    const charCount = document.createElement('div'); charCount.className='char-count'; charCount.textContent = `${(box.content||'').length}文字`; toolbar.appendChild(charCount);
-
-    const ta = document.createElement('textarea'); ta.value = box.content||''; ta.placeholder='ここにメモを入力'; ta.addEventListener('input', (e)=>{ box.content = e.target.value; charCount.textContent = `${e.target.value.length}文字`; adjustHeight(ta); saveDebounced(); });
-
-    card.appendChild(toolbar); card.appendChild(ta);
-
-    card.addEventListener('dragstart', (e)=>{ e.dataTransfer.setData('text/plain', JSON.stringify({type:'box', id:box.id, tabId:tab.id})); card.classList.add('dragging'); });
-    card.addEventListener('dragend', ()=>{ card.classList.remove('dragging'); });
-
-    card.addEventListener('dragover', (e)=>{ e.preventDefault(); card.style.outline='2px dashed rgba(0,0,0,0.06)'; });
-    card.addEventListener('dragleave', ()=>{ card.style.outline=''; });
-    card.addEventListener('drop', (e)=>{ e.preventDefault(); card.style.outline=''; try{ const d = JSON.parse(e.dataTransfer.getData('text/plain')); if(d.type==='box'){ reorderBox(d.tabId, d.id, tab.id, box.id); } }catch(er){} });
-
-    setTimeout(()=>adjustHeight(ta),0);
-    return card;
-  }
-
-  function reorderBox(fromTabId, dragBoxId, toTabId, dropBeforeBoxId){
-    const fromTab = state.tabs.find(t=>t.id===fromTabId);
-    const toTab = state.tabs.find(t=>t.id===toTabId);
-    if(!fromTab || !toTab) return;
-    const fromIdx = fromTab.boxes.findIndex(b=>b.id===dragBoxId);
-    const toIdx = toTab.boxes.findIndex(b=>b.id===dropBeforeBoxId);
-    if(fromIdx<0 || toIdx<0) return;
-    const item = fromTab.boxes.splice(fromIdx,1)[0];
-    let insertIndex = toIdx;
-    if(fromTabId === toTabId){ const orig = fromIdx; if(orig < toIdx) insertIndex = toIdx; }
-    toTab.boxes.splice(insertIndex,0,item);
-    saveDebounced(); render();
-  }
-
-  function adjustHeight(el){ if(!el) return; el.style.height='auto'; el.style.height = (el.scrollHeight + 12) + 'px'; }
-
-  function copyAll(tabId){ const tab = state.tabs.find(t=>t.id===tabId); if(!tab) return; const text = tab.boxes.map(b=>b.content||'').join('\n\n'); navigator.clipboard.writeText(text).catch(()=>{}); }
-
-  function startInlineEdit(chipEl, tab){ const label = chipEl.querySelector('.label'); const input = document.createElement('input'); input.type='text'; input.value=tab.name; input.style.padding='6px 8px'; input.style.fontSize='14px'; input.style.borderRadius='8px'; input.style.border='1px solid rgba(0,0,0,0.12)'; chipEl.insertBefore(input, label); chipEl.removeChild(label); input.focus(); input.setSelectionRange(input.value.length,input.value.length);
-    const commit = ()=>{ tab.name = input.value.trim()||'ノート'; saveDebounced(); render(); };
-    input.addEventListener('keydown', (e)=>{ if(e.key==='Enter') commit(); else if(e.key==='Escape') render(); });
-    input.addEventListener('blur', commit);
-  }
-
-  function render(){
-    tagBar.innerHTML='';
-    state.tabs.forEach(tab=>{
-      const el = createTabElement(tab);
-      tagBar.appendChild(el);
+    btnAdd.addEventListener('click', async () => {
+      const id = crypto.randomUUID();
+      const idx = state.tabs.length + 1;
+      const title = `メモ ${idx}`;
+      state.tabs.push({ id, title, content: '', updatedAt: Date.now() });
+      state.activeId = id;
+      persist();
+      renderTabs();
+      openActiveTab();
+      await showTitleDialog('タブ名の入力', title);
     });
-    const add = document.createElement('button'); add.className='chip add-tag'; add.innerText='➕ タブ追加'; add.addEventListener('click', ()=>{ const name = prompt('新しいタブ名を入力してください','新しいノート'); if(name===null) return; const t={id:uid(),name:name.trim()||'ノート',boxes:[{id:uid(),content:''}]}; state.tabs.push(t); state.activeTabId = t.id; saveDebounced(); render(); }); tagBar.appendChild(add);
 
-    mainArea.innerHTML='';
-    const tab = state.tabs.find(t=>t.id===state.activeTabId);
-    if(!tab) return;
-    tab.boxes.forEach((box, idx)=>{ const card = createBoxElement(box, idx, tab); mainArea.appendChild(card); });
+    btnRename.addEventListener('click', async () => {
+      const tab = getActive();
+      if (!tab) return;
+      const newTitle = await showTitleDialog('タブ名の変更', tab.title);
+      if (newTitle != null) {
+        tab.title = newTitle.trim() || tab.title;
+        tab.updatedAt = Date.now();
+        persist();
+        renderTabs();
+      }
+    });
 
-    updateStorageInfo();
-  }
+    btnDelete.addEventListener('click', () => {
+      const tab = getActive();
+      if (!tab) return;
+      if (!confirm(`「${tab.title}」を削除します。よろしいですか？`)) return;
+      const idx = state.tabs.findIndex(t => t.id === tab.id);
+      state.tabs.splice(idx, 1);
+      if (state.tabs.length === 0) {
+        Object.assign(state, createInitialState());
+      } else {
+        const next = state.tabs[Math.max(0, idx - 1)];
+        state.activeId = next.id;
+      }
+      persist();
+      renderTabs();
+      openActiveTab();
+    });
 
-  function focusBox(id){ setTimeout(()=>{ const nodes = mainArea.querySelectorAll('textarea'); for(const n of nodes){ const card = n.closest('.box-card'); if(card && card.dataset.id===id){ n.focus(); const v=n.value; n.value=''; n.value=v; adjustHeight(n); break; } } },200); }
+    btnCopy.addEventListener('click', async () => {
+      try {
+        const text = editor.value;
+        await navigator.clipboard.writeText(text);
+        flash(btnCopy, 'コピーしました');
+      } catch (e) {
+        editor.select();
+        document.execCommand('copy');
+        flash(btnCopy, 'コピーしました');
+      }
+    });
 
-  tagBar.addEventListener('dragover', (e)=>{ e.preventDefault(); });
-  tagBar.addEventListener('drop', (e)=>{ e.preventDefault(); try{ const d = JSON.parse(e.dataTransfer.getData('text/plain')); if(d.type==='tab'){ const idx = state.tabs.findIndex(t=>t.id===d.id); if(idx>=0){ const item = state.tabs.splice(idx,1)[0]; state.tabs.push(item); saveDebounced(); render(); } } }catch(_){} });
+    btnClear.addEventListener('click', () => {
+      if (!editor.value) return;
+      if (!confirm('このタブの内容をすべて消去します。よろしいですか？')) return;
+      editor.value = '';
+      writeBack();
+      updateCounts();
+      flash(btnClear, 'クリアしました');
+    });
 
-  mainArea.addEventListener('dragover', (e)=>{ e.preventDefault(); });
-  mainArea.addEventListener('drop', (e)=>{ e.preventDefault(); try{ const d = JSON.parse(e.dataTransfer.getData('text/plain')); if(d.type==='box'){ const fromTab = state.tabs.find(t=>t.id===d.tabId); const toTab = state.tabs.find(t=>t.id===state.activeTabId); if(!fromTab||!toTab) return; const fromIdx = fromTab.boxes.findIndex(b=>b.id===d.id); if(fromIdx<0) return; const item = fromTab.boxes.splice(fromIdx,1)[0]; toTab.boxes.push(item); saveDebounced(); render(); } }catch(_){} });
+    editor.addEventListener('input', () => { writeBack(); updateCounts(); });
+    editor.addEventListener('select', updateCounts);
+    editor.addEventListener('keyup', updateCounts);
+    editor.addEventListener('mouseup', updateCounts);
 
-  // init
-  load(); if(!state.activeTabId) state.activeTabId = state.tabs[0].id; render();
+    window.addEventListener('beforeunload', () => persist(true));
 
-  // update display regularly (in case something changes)
-  setInterval(updateStorageInfo, 1500);
+    function createInitialState(){
+      const id = crypto.randomUUID();
+      return {
+        tabs: [{ id, title: 'メモ 1', content: '', updatedAt: Date.now() }],
+        activeId: id
+      };
+    }
 
-})();
-</script>
+    function load(){
+      try{
+        const raw = localStorage.getItem(LS_KEY);
+        return raw ? JSON.parse(raw) : null;
+      }catch{ return null }
+    }
+
+    function persist(immediate=false){
+      const doSave = () => localStorage.setItem(LS_KEY, JSON.stringify(state));
+      if (immediate){ doSave(); return; }
+      clearTimeout(saveTimer);
+      saveTimer = setTimeout(doSave, 250);
+    }
+
+    function getActive(){
+      return state.tabs.find(t => t.id === state.activeId);
+    }
+
+    function openActiveTab(){
+      const tab = getActive();
+      if (!tab) return;
+      editor.value = tab.content || '';
+      editor.focus({ preventScroll:true });
+      editor.setSelectionRange(editor.value.length, editor.value.length);
+      updateCounts();
+    }
+
+    function writeBack(){
+      const tab = getActive();
+      if (!tab) return;
+      tab.content = editor.value;
+      tab.updatedAt = Date.now();
+      persist();
+      renderTabs();
+    }
+
+    function renderTabs(){
+      tabbar.innerHTML = '';
+      for(const t of state.tabs){
+        const el = document.createElement('div');
+        el.className = 'tab' + (t.id === state.activeId ? ' active' : '');
+        el.role = 'button';
+        el.tabIndex = 0;
+        el.innerHTML = `<span class="tab-title">${escapeHtml(t.title)}</span>`;
+        el.addEventListener('click', () => { state.activeId = t.id; persist(); renderTabs(); openActiveTab(); });
+        el.addEventListener('keydown', (e)=>{ if(e.key==='Enter' || e.key===' '){ el.click(); }});
+        tabbar.appendChild(el);
+      }
+    }
+
+    function updateCounts(){
+      const v = editor.value || '';
+      const len = [...v].length;
+      $countAll.textContent = `全体: ${len} 文字`;
+      const sel = editor.selectionEnd - editor.selectionStart;
+      const selLen = Math.max(0, sel);
+      $countSel.textContent = `選択: ${selLen} 文字`;
+    }
+
+    function flash(btn, text){
+      const old = btn.textContent;
+      btn.textContent = text;
+      btn.disabled = true;
+      setTimeout(()=>{ btn.textContent = old; btn.disabled = false; }, 900);
+    }
+
+    function showTitleDialog(titleText, current){
+      return new Promise((resolve)=>{
+        $('#titleForm').reset();
+        titleInput.value = current || '';
+        dTitle.returnValue = 'cancel';
+        dTitle.showModal();
+        setTimeout(()=>{ titleInput.focus(); titleInput.select(); }, 0);
+        dTitle.addEventListener('close', onClose, { once:true });
+        function onClose(){
+          if (dTitle.returnValue === 'ok') {
+            resolve(titleInput.value);
+          } else {
+            resolve(null);
+          }
+        }
+      });
+    }
+
+    function escapeHtml(s){
+      return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c]));
+    }
+  })();
+  </script>
 </body>
 </html>
