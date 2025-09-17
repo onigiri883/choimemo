@@ -47,7 +47,7 @@
     .editor-wrap{flex:1 1 auto; display:flex}
     .editor{
       width:100%; resize:none; border:none; outline:none; background:transparent; color:var(--ink); font-size:16px; line-height:1.6; padding:16px;
-      padding-top: calc(84px + env(safe-area-inset-top));
+      margin-top:100px; /* ヘッダー分の余白を調整 */
       padding-bottom: calc(78px + env(safe-area-inset-bottom));
     }
 
@@ -107,7 +107,6 @@
   </dialog>
 
   <script>
-  // JS部分はそのまま（デザインのみ変更）
   ;(() => {
     const LS_KEY = 'local-memo-tabs-v1';
     let state = load() || createInitialState();
